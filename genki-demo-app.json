@@ -1,0 +1,138 @@
+{
+  "profiles": [
+    {
+      "id": 1,
+      "name": "Genki Student",
+      "avatar": "https://ui-avatars.com/api/?name=Genki+Student&background=6a5d3b&color=fff&rounded=true",
+      "level": 1,
+      "xp": 0,
+      "xpToNext": 100,
+      "streak": 0,
+      "achievements": [],
+      "completedLessons": [],
+      "completedChapters": [],
+      "completedCourses": [],
+      "exerciseLog": [],
+      "settings": { "theme": "light" }
+    }
+  ],
+  "courses": [
+    {
+      "id": 1,
+      "title": "Genki I: An Integrated Course in Elementary Japanese",
+      "desc": "A comprehensive course for beginners based on the Genki Volume 1 textbook. This course covers foundational Japanese grammar, vocabulary, kanji, and communication skills for everyday situations, following the 24 lessons of the book.",
+      "icon": "📘",
+      "summary": "By the end of this course, you will be able to hold simple conversations, read and write Hiragana, Katakana, and basic Kanji, and understand the core grammatical structures of elementary Japanese as covered in Genki I.",
+      "tags": ["japanese", "genki", "language-learning", "beginner", "jlpt-n5"],
+      "image": "genki-vol1-icon.png",
+      "goals": [
+        "Master the Hiragana and Katakana writing systems",
+        "Learn approximately 300 essential Kanji characters and 1,100 vocabulary words",
+        "Understand and use fundamental Japanese grammar, including verb/adjective conjugations and particles",
+        "Engage in basic daily conversations such as introductions, shopping, and making plans"
+      ],
+      "chapters": [
+        {
+          "id": 101,
+          "title": "Lesson 0: Writing System, Greetings, and Numbers",
+          "desc": "Learn the foundational elements of Japanese: the Hiragana and Katakana writing systems, essential greetings, and how to count.",
+          "summary": "You will master the Japanese phonetic alphabets (Kana), be able to use essential daily greetings, and count in Japanese.",
+          "goals": [
+            "Read and write all Hiragana characters",
+            "Read and write all Katakana characters",
+            "Use greetings like おはようございます and こんにちは",
+            "Count from 1 to 100"
+          ],
+          "lessons": [
+            {
+              "id": 1001,
+              "title": "Hiragana and Katakana",
+              "content": "# The Japanese Writing System\n\nJapanese uses three scripts: Hiragana (ひらがな), Katakana (カタカナ), and Kanji (漢字).\n\n## Hiragana (ひらがな)\nHiragana is a phonetic script used for native Japanese words, grammar particles, and verb endings. It has 46 basic characters.\n\n**Examples:**\n- あ (a), い (i), う (u), え (e), お (o)\n- か (ka), き (ki), く (ku), け (ke), こ (ko)\n\n## Katakana (カタカナ)\nKatakana is another phonetic script, primarily used for foreign loanwords, onomatopoeia, and for emphasis.\n\n**Examples:**\n- ア (a), イ (i), ウ (u), エ (e), オ (o)\n- カメラ (kamera - camera)\n- アメリカ (amerika - America)",
+              "exercises": [
+                {
+                  "type": "mcq",
+                  "prompt": "Which script is used for writing native Japanese words and grammatical endings?",
+                  "options": ["Katakana", "Kanji", "Hiragana", "Romaji"],
+                  "answer": 2
+                }
+              ]
+            },
+            {
+              "id": 1002,
+              "title": "Greetings and Classroom Expressions",
+              "content": "# Essential Phrases\n\n## Everyday Greetings\n- **おはようございます (ohayō gozaimasu)**: Good morning (formal)\n- **こんにちは (konnichiwa)**: Hello / Good afternoon\n- **こんばんは (konbanwa)**: Good evening\n- **さようなら (sayōnara)**: Goodbye\n- **ありがとうございます (arigatō gozaimasu)**: Thank you (formal)\n\n## Classroom Expressions\n- **すみません (sumimasen)**: Excuse me.\n- **ゆっくりいってください (yukkuri itte kudasai)**: Please say it slowly.\n- **もういちどいってください (mō ichido itte kudasai)**: Please say it again.",
+              "exercises": [
+                {
+                  "type": "fill",
+                  "prompt": "To get someone's attention or to apologize, you can say __________.",
+                  "answer": "すみません"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 102,
+          "title": "Lesson 1: New Friends",
+          "desc": "Learn to introduce yourself and others, state your major and nationality, and use the basic sentence pattern 'XはYです' (X is Y).",
+          "summary": "You will be able to introduce yourself, ask and answer simple questions about identity and profession, and use the core sentence structure 'XはYです'.",
+          "goals": [
+            "Introduce yourself and others",
+            "Use the topic marker particle は (wa)",
+            "Form questions with the particle か (ka)",
+            "Use the possessive particle の (no)"
+          ],
+          "lessons": [
+            {
+              "id": 1003,
+              "title": "Grammar Explanation: XはYです",
+              "content": "# Grammar: XはYです (X is Y)\n\nThis is the most basic sentence structure in Japanese, used to state that 'X is Y'.\n\n## Structure\nTopic (X) + は (wa) + Noun (Y) + です (desu).\n\n- **は (wa)**: The topic marker particle.\n- **です (desu)**: The polite copula, similar to 'is' or 'am'.\n\n## Example\nわたしは　メアリーです。\n(Watashi wa Mearī desu.)\nI am Mary.\n\n## Questions with か (ka)\nTo turn a statement into a question, add the particle **か (ka)** to the end.\n\nたけしさんは　がくせいですか。\n(Takeshi-san wa gakusei desu ka?)\nIs Takeshi a student?",
+              "exercises": [
+                {
+                  "type": "fill",
+                  "prompt": "How do you translate 'Professor Yamada is Japanese' into Japanese?",
+                  "answer": "やまだせんせいはにほんじんです。"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 103,
+          "title": "Lesson 2: Shopping",
+          "desc": "Learn vocabulary related to shopping, use demonstratives (これ, それ, あれ), and ask for prices.",
+          "summary": "You will be able to point out items, ask for prices, and complete a simple shopping transaction.",
+          "goals": [
+            "Use demonstratives これ, それ, あれ, どれ",
+            "Use the pattern この/その/あの/どの + Noun",
+            "Ask 'How much is it?' using いくらですか",
+            "Use the particle も (too, also)"
+          ],
+          "lessons": [
+            {
+              "id": 1004,
+              "title": "Grammar Explanation: Demonstratives",
+              "content": "# Grammar: Demonstratives\n\nThese words point to things.\n\n## Pronouns (これ/それ/あれ/どれ)\n- **これ (kore)**: This (thing near the speaker).\n- **それ (sore)**: That (thing near the listener).\n- **あれ (are)**: That over there (thing far from both).\n- **どれ (dore)**: Which one?\n\n## Adjectives (この/その/あの/どの)\nThese words must be followed by a noun.\n- **このとけい (kono tokei)**: This watch\n- **そのかばん (sono kaban)**: That bag\n\n## Example\nこれはいくらですか。\n(Kore wa ikura desu ka?)\nHow much is this?\n\nこのとけいはさんぜんえんです。\n(Kono tokei wa sanzen en desu.)\nThis watch is 3000 yen.",
+              "exercises": [
+                {
+                  "type": "mcq",
+                  "prompt": "If you are pointing to a bag that your friend is holding, which word do you use to refer to it?",
+                  "options": [
+                    "これ (kore)",
+                    "それ (sore)",
+                    "あれ (are)",
+                    "この (kono)"
+                  ],
+                  "answer": 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selectedProfileId": 1,
+  "adminMode": false,
+  "appSettings": { "theme": "light" }
+} 

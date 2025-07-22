@@ -706,18 +706,20 @@ function showCreateProfileModal() {
   alert('Create Profile Modal (to be implemented)');
 }
 
-function showModalTabbed({title, formHtml, jsonTemplate, onFormMount, onJsonMount}) {
+function showModalTabbed({title, formHtml, jsonTemplate, onFormMount, onJsonMount, jsonFaq}) {
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal-content modal-lg">
     <div class="modal-tabs">
       <button class="modal-tab-btn active" data-tab="form">Form</button>
       <button class="modal-tab-btn" data-tab="json">JSON Template</button>
+      ${jsonFaq ? '<button class="modal-tab-btn" data-tab="faq">FAQ</button>' : ''}
     </div>
     <div class="modal-tab-content modal-tab-form">${formHtml}</div>
     <div class="modal-tab-content modal-tab-json" style="display:none;">
       <pre class="modal-json-template"><code>${jsonTemplate}</code></pre>
       <button class="admin-btn" id="copy-json-template-btn">Copy JSON</button>
     </div>
+    ${jsonFaq ? `<div class="modal-tab-content modal-tab-faq" style="display:none;">${jsonFaq}</div>` : ''}
   </div></div>`;
   modalRoot.style.pointerEvents = 'auto';
   // Tab switching
@@ -727,6 +729,7 @@ function showModalTabbed({title, formHtml, jsonTemplate, onFormMount, onJsonMoun
     btn.classList.add('active');
     modalRoot.querySelector('.modal-tab-form').style.display = btn.dataset.tab === 'form' ? '' : 'none';
     modalRoot.querySelector('.modal-tab-json').style.display = btn.dataset.tab === 'json' ? '' : 'none';
+    if (jsonFaq) modalRoot.querySelector('.modal-tab-faq').style.display = btn.dataset.tab === 'faq' ? '' : 'none';
   });
   // Copy JSON
   modalRoot.querySelector('#copy-json-template-btn').onclick = () => {
@@ -750,13 +753,63 @@ function showBulkAddModal(type) {
   const jsonTemplate = type === 'course' ?
 `[
   {
-    "title": "Course Title",
-    "desc": "Course description...",
-    "icon": "📚",
+    "id": 1,
+    "title": "Learn to Code in Python",
+    "desc": "Start your journey with Python.",
+    "icon": "🐍",
     "chapters": [
-      { "title": "Chapter 1", "desc": "...", "icon": "📖", "lessons": [
-        { "title": "Lesson 1", "content": "..." }
-      ] }
+      {
+        "id": 101,
+        "title": "Introduction to Python",
+        "desc": "...",
+        "icon": "📖",
+        "lessons": [
+          {
+            "id": 1001,
+            "title": "What is Python?",
+            "content": "Markdown or HTML content...",
+            "exercises": [
+              { "type": "code", "prompt": "Write a Hello World program.", "starter": "print('')", "solution": "print('Hello, World!')" },
+              { "type": "mcq", "prompt": "What is Python?", "options": ["A snake", "A programming language", "A car"], "answer": 1 },
+              { "type": "fill", "prompt": "Python is a ____ language.", "answer": "programming" },
+              { "type": "drag", "prompt": "Order the steps to print in Python.", "items": ["Type print", "Open parenthesis", "Add string", "Close parenthesis"], "order": [0,1,2,3] },
+              { "type": "order", "prompt": "Arrange the numbers in ascending order.", "items": [3,1,2], "order": [1,2,0] }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 102,
+        "title": "Variables and Data Types",
+        "desc": "...",
+        "icon": "🔢",
+        "lessons": [
+          {
+            "id": 1002,
+            "title": "Variables",
+            "content": "Markdown or HTML content...",
+            "exercises": [
+              { "type": "code", "prompt": "Assign 5 to variable x.", "starter": "x = ", "solution": "x = 5" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 103,
+        "title": "Control Flow",
+        "desc": "...",
+        "icon": "🔁",
+        "lessons": [
+          {
+            "id": 1003,
+            "title": "If Statements",
+            "content": "Markdown or HTML content...",
+            "exercises": [
+              { "type": "mcq", "prompt": "Which keyword starts a conditional?", "options": ["if", "for", "while"], "answer": 0 }
+            ]
+          }
+        ]
+      }
     ]
   }
 ]`
@@ -766,47 +819,188 @@ function showBulkAddModal(type) {
     {
       "id": 1,
       "name": "Demo User",
-      "avatar": "https://ui-avatars.com/api/?name=Demo+User&background=6a5d3b&color=fff&rounded=true",
+      "avatar": "https://...",
       "level": 4,
       "xp": 1280,
       "xpToNext": 1500,
       "streak": 4,
-      "achievements": 3
+      "achievements": [1,2,3],
+      "completedLessons": [1001,1002,1003],
+      "completedChapters": [101,102,103],
+      "completedCourses": [1],
+      "exerciseLog": [
+        { "lessonId": 1001, "type": "code", "status": "success", "timestamp": 1710000000000 },
+        { "lessonId": 1001, "type": "mcq", "status": "success", "timestamp": 1710000000001 },
+        { "lessonId": 1001, "type": "fill", "status": "fail", "timestamp": 1710000000002 },
+        { "lessonId": 1001, "type": "drag", "status": "success", "timestamp": 1710000000003 },
+        { "lessonId": 1001, "type": "order", "status": "success", "timestamp": 1710000000004 }
+      ],
+      "settings": { "theme": "light" }
     }
   ],
   "courses": [
     {
       "id": 1,
       "title": "Learn to Code in Python",
-      "desc": "Start your journey with Python. No experience required.",
+      "desc": "Start your journey with Python.",
       "icon": "🐍",
-      "progress": 1,
-      "total": 1,
-      "percent": 100,
       "chapters": [
         {
           "id": 101,
           "title": "Introduction to Python",
-          "desc": "Get started with Python, its history, and why it is so popular.",
+          "desc": "...",
           "icon": "📖",
-          "percent": 100,
-          "progress": 3,
-          "total": 3,
           "lessons": [
-            { "id": 1001, "title": "What is Python?", "content": "Python is a versatile programming language..." }
+            {
+              "id": 1001,
+              "title": "What is Python?",
+              "content": "Markdown or HTML content...",
+              "exercises": [
+                { "type": "code", "prompt": "Write a Hello World program.", "starter": "print('')", "solution": "print('Hello, World!')" },
+                { "type": "mcq", "prompt": "What is Python?", "options": ["A snake", "A programming language", "A car"], "answer": 1 },
+                { "type": "fill", "prompt": "Python is a ____ language.", "answer": "programming" },
+                { "type": "drag", "prompt": "Order the steps to print in Python.", "items": ["Type print", "Open parenthesis", "Add string", "Close parenthesis"], "order": [0,1,2,3] },
+                { "type": "order", "prompt": "Arrange the numbers in ascending order.", "items": [3,1,2], "order": [1,2,0] }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 102,
+          "title": "Variables and Data Types",
+          "desc": "...",
+          "icon": "🔢",
+          "lessons": [
+            {
+              "id": 1002,
+              "title": "Variables",
+              "content": "Markdown or HTML content...",
+              "exercises": [
+                { "type": "code", "prompt": "Assign 5 to variable x.", "starter": "x = ", "solution": "x = 5" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 103,
+          "title": "Control Flow",
+          "desc": "...",
+          "icon": "🔁",
+          "lessons": [
+            {
+              "id": 1003,
+              "title": "If Statements",
+              "content": "Markdown or HTML content...",
+              "exercises": [
+                { "type": "mcq", "prompt": "Which keyword starts a conditional?", "options": ["if", "for", "while"], "answer": 0 }
+              ]
+            }
           ]
         }
       ]
     }
   ],
   "selectedProfileId": 1,
-  "adminMode": false
+  "adminMode": false,
+  "appSettings": { "theme": "light" }
 }`;
+
+  const faqHtml = `
+    <h2>FAQ: JSON Structure & Field Options</h2>
+    <h3>Profiles</h3>
+    <ul>
+      <li><b>id</b> (number, required): Unique user ID</li>
+      <li><b>name</b> (string, required): User's display name</li>
+      <li><b>avatar</b> (string, optional): Avatar image URL</li>
+      <li><b>level</b>, <b>xp</b>, <b>xpToNext</b>, <b>streak</b> (numbers): Gamification stats</li>
+      <li><b>achievements</b> (array of numbers): Earned achievement IDs</li>
+      <li><b>completedLessons</b>, <b>completedChapters</b>, <b>completedCourses</b> (arrays of IDs): Progress tracking</li>
+      <li><b>exerciseLog</b> (array): Each log: { lessonId, type, status, timestamp }</li>
+      <li><b>settings</b> (object, optional): User preferences (e.g., theme)</li>
+    </ul>
+    <h3>Courses</h3>
+    <ul>
+      <li><b>id</b> (number, required): Unique course ID</li>
+      <li><b>title</b> (string, required): Course name</li>
+      <li><b>desc</b> (string): Description</li>
+      <li><b>icon</b> (string): Emoji/icon</li>
+      <li><b>chapters</b> (array): List of chapters</li>
+    </ul>
+    <h3>Chapters</h3>
+    <ul>
+      <li><b>id</b> (number, required): Unique chapter ID</li>
+      <li><b>title</b> (string, required): Chapter name</li>
+      <li><b>desc</b> (string): Description</li>
+      <li><b>icon</b> (string): Emoji/icon</li>
+      <li><b>lessons</b> (array): List of lessons</li>
+    </ul>
+    <h3>Lessons</h3>
+    <ul>
+      <li><b>id</b> (number, required): Unique lesson ID</li>
+      <li><b>title</b> (string, required): Lesson name</li>
+      <li><b>content</b> (string): Markdown/HTML content</li>
+      <li><b>exercises</b> (array): List of exercises</li>
+    </ul>
+    <h3>Exercises</h3>
+    <table class="faq-field-table">
+      <tr><th>Type</th><th>Required Fields</th><th>Description</th></tr>
+      <tr><td>code</td><td>prompt, solution<br>starter (optional)</td><td>Code exercise. <br>"solution" is the correct code.<br>"starter" is the initial code shown.</td></tr>
+      <tr><td>mcq</td><td>prompt, options, answer</td><td>Multiple choice. <br>"options" is an array of strings.<br>"answer" is the index of the correct option.</td></tr>
+      <tr><td>fill</td><td>prompt, answer</td><td>Fill-in-the-blank. <br>"answer" is the correct string.</td></tr>
+      <tr><td>drag</td><td>prompt, items, order</td><td>Drag-and-drop ordering. <br>"items" is an array.<br>"order" is the correct order as array of indices.</td></tr>
+      <tr><td>order</td><td>prompt, items, order</td><td>Order challenge. <br>"items" is an array.<br>"order" is the correct order as array of indices.</td></tr>
+    </table>
+    <div class="modal-faq-examples">
+      <b>Examples:</b>
+      <pre><code>{
+  "type": "code",
+  "prompt": "Write a Hello World program.",
+  "starter": "print('')",
+  "solution": "print('Hello, World!')"
+}
+{
+  "type": "mcq",
+  "prompt": "What is Python?",
+  "options": ["A snake", "A programming language", "A car"],
+  "answer": 1
+}
+{
+  "type": "fill",
+  "prompt": "Python is a ____ language.",
+  "answer": "programming"
+}
+{
+  "type": "drag",
+  "prompt": "Order the steps to print in Python.",
+  "items": ["Type print", "Open parenthesis", "Add string", "Close parenthesis"],
+  "order": [0,1,2,3]
+}
+{
+  "type": "order",
+  "prompt": "Arrange the numbers in ascending order.",
+  "items": [3,1,2],
+  "order": [1,2,0]
+}</code></pre>
+    </div>
+    <h3>Other Fields</h3>
+    <ul>
+      <li><b>selectedProfileId</b>: (number) The currently selected profile's ID</li>
+      <li><b>adminMode</b>: (boolean) Whether admin mode is enabled</li>
+      <li><b>appSettings</b>: (object) App-wide settings (e.g., theme)</li>
+    </ul>
+    <div style="margin-top:1.2rem;font-size:0.98rem;">
+      <b>Tips:</b><br>
+      • All IDs must be unique within their type.<br>
+      • You can add extra fields for your own extensions.<br>
+      • Use the JSON Template tab for a copyable example.
+    </div>
+  `;
+
   showModalTabbed({
     title: `Add ${type === 'course' ? 'Courses' : 'Full App State'}`,
     formHtml: `
       <h2>Add ${type === 'course' ? 'Courses' : 'Full App State'} (JSON)</h2>
-      <textarea id="bulk-json" rows="10" style="width:100%;font-family:monospace;"></textarea>
+      <textarea id="bulk-json" rows="16" style="width:100%;font-family:monospace;"></textarea>
       <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
         <button class="admin-btn" id="bulk-add-btn">Add</button>
         <button class="admin-btn" id="bulk-cancel-btn">Cancel</button>
@@ -831,7 +1025,8 @@ function showBulkAddModal(type) {
           alert('Invalid JSON: ' + e.message);
         }
       };
-    }
+    },
+    jsonFaq: faqHtml
   });
 }
 
@@ -1322,3 +1517,295 @@ renderProfileScreen = function() {
     nav.insertBefore(btn, nav.firstChild);
   }
 };
+
+// Add global Import/Export buttons to dashboard and profile navbars
+function addGlobalImportExportButtons(nav) {
+  if (!nav.querySelector('#global-export-btn')) {
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'navbar-link';
+    exportBtn.id = 'global-export-btn';
+    exportBtn.textContent = 'Save & Export';
+    exportBtn.onclick = () => {
+      const stateRaw = localStorage.getItem('arcanum-app-state');
+      const blob = new Blob([stateRaw], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'arcanum-data.json';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{document.body.removeChild(a); URL.revokeObjectURL(url);}, 100);
+    };
+    nav.insertBefore(exportBtn, nav.firstChild);
+  }
+  if (!nav.querySelector('#global-import-btn')) {
+    const importBtn = document.createElement('button');
+    importBtn.className = 'navbar-link';
+    importBtn.id = 'global-import-btn';
+    importBtn.textContent = 'Import from JSON';
+    importBtn.onclick = () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const data = JSON.parse(evt.target.result);
+            // Basic validation: must have profiles and courses
+            if (!data.profiles || !data.courses) throw new Error('Missing profiles or courses');
+            localStorage.setItem('arcanum-app-state', JSON.stringify(data));
+            location.reload();
+          } catch (err) {
+            alert('Invalid JSON: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    };
+    nav.insertBefore(importBtn, nav.firstChild);
+  }
+}
+
+// Patch dashboard and profile navs to include global import/export
+const origRenderDashboardView2 = renderDashboardView;
+renderDashboardView = function() {
+  origRenderDashboardView2.apply(this, arguments);
+  const root = document.getElementById('app-root');
+  const nav = root.querySelector('.main-navbar .navbar-right');
+  if (nav) addGlobalImportExportButtons(nav);
+};
+const origRenderProfileScreen3 = renderProfileScreen;
+renderProfileScreen = function() {
+  origRenderProfileScreen3();
+  const root = document.getElementById('app-root');
+  const nav = root.querySelector('.main-navbar .navbar-right');
+  if (nav) addGlobalImportExportButtons(nav);
+};
+
+// Patch showModalTabbed to support FAQ tab if jsonFaq is provided
+const origShowModalTabbed = showModalTabbed;
+showModalTabbed = function(opts) {
+  const { title, formHtml, jsonTemplate, onFormMount, onJsonMount, jsonFaq } = opts;
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal-content modal-lg">
+    <div class="modal-tabs">
+      <button class="modal-tab-btn active" data-tab="form">Form</button>
+      <button class="modal-tab-btn" data-tab="json">JSON Template</button>
+      ${jsonFaq ? '<button class="modal-tab-btn" data-tab="faq">FAQ</button>' : ''}
+    </div>
+    <div class="modal-tab-content modal-tab-form">${formHtml}</div>
+    <div class="modal-tab-content modal-tab-json" style="display:none;">
+      <pre class="modal-json-template"><code>${jsonTemplate}</code></pre>
+      <button class="admin-btn" id="copy-json-template-btn">Copy JSON</button>
+    </div>
+    ${jsonFaq ? `<div class="modal-tab-content modal-tab-faq" style="display:none;">${jsonFaq}</div>` : ''}
+  </div></div>`;
+  modalRoot.style.pointerEvents = 'auto';
+  // Tab switching
+  const tabBtns = modalRoot.querySelectorAll('.modal-tab-btn');
+  tabBtns.forEach(btn => btn.onclick = () => {
+    tabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    modalRoot.querySelector('.modal-tab-form').style.display = btn.dataset.tab === 'form' ? '' : 'none';
+    modalRoot.querySelector('.modal-tab-json').style.display = btn.dataset.tab === 'json' ? '' : 'none';
+    if (jsonFaq) modalRoot.querySelector('.modal-tab-faq').style.display = btn.dataset.tab === 'faq' ? '' : 'none';
+  });
+  // Copy JSON
+  modalRoot.querySelector('#copy-json-template-btn').onclick = () => {
+    const code = modalRoot.querySelector('.modal-json-template code').innerText;
+    navigator.clipboard.writeText(code);
+    modalRoot.querySelector('#copy-json-template-btn').textContent = 'Copied!';
+    setTimeout(()=>{modalRoot.querySelector('#copy-json-template-btn').textContent = 'Copy JSON';}, 1200);
+  };
+  // Overlay click to close
+  modalRoot.onclick = (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+      modalRoot.innerHTML = '';
+      modalRoot.style.pointerEvents = 'none';
+    }
+  };
+  if (onFormMount) onFormMount();
+  if (onJsonMount) onJsonMount();
+};
+
+// --- Add/Edit/Bulk JSON for Chapters ---
+function showBulkAddChaptersModal(courseId) {
+  const jsonTemplate = `[
+  {
+    "id": 201,
+    "title": "New Chapter",
+    "desc": "Chapter description...",
+    "icon": "📖",
+    "lessons": []
+  }
+]`;
+  const faqHtml = `<b>Chapters FAQ</b><ul><li><b>id</b>: Unique number</li><li><b>title</b>: Chapter name</li><li><b>desc</b>: Description</li><li><b>icon</b>: Emoji/icon</li><li><b>lessons</b>: Array of lessons</li></ul>`;
+  showModalTabbed({
+    title: 'Bulk Add Chapters (JSON)',
+    formHtml: `<h2>Bulk Add Chapters (JSON)</h2><textarea id="bulk-chapters-json" rows="10"></textarea><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="bulk-add-chapters-btn">Add</button><button class="admin-btn" id="bulk-cancel-chapters-btn">Cancel</button></div>`,
+    jsonTemplate,
+    jsonFaq: faqHtml,
+    onFormMount: () => {
+      document.getElementById('bulk-cancel-chapters-btn').onclick = closeModal;
+      document.getElementById('bulk-add-chapters-btn').onclick = () => {
+        try {
+          const arr = JSON.parse(document.getElementById('bulk-chapters-json').value);
+          const course = state.getCourses().find(c => c.id == courseId);
+          if (Array.isArray(arr) && course) {
+            course.chapters = course.chapters.concat(arr);
+            state.editCourse(course.id, { chapters: course.chapters });
+            closeModal();
+            renderCourseWideChaptersView(course, course.chapters, null);
+          }
+        } catch (e) { alert('Invalid JSON: ' + e.message); }
+      };
+    }
+  });
+}
+function showEditChapterModal(chapter, courseId) {
+  const jsonTemplate = JSON.stringify(chapter, null, 2);
+  showModalTabbed({
+    title: 'Edit Chapter',
+    formHtml: `<h2>Edit Chapter</h2><label>Title: <input id="edit-chapter-title" value="${chapter.title}"></label><br><label>Description: <input id="edit-chapter-desc" value="${chapter.desc || ''}"></label><br><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="save-chapter-btn">Save</button><button class="admin-btn" id="cancel-chapter-btn">Cancel</button></div>`,
+    jsonTemplate,
+    onFormMount: () => {
+      document.getElementById('save-chapter-btn').onclick = () => {
+        chapter.title = document.getElementById('edit-chapter-title').value;
+        chapter.desc = document.getElementById('edit-chapter-desc').value;
+        const course = state.getCourses().find(c => c.id == courseId);
+        const idx = course.chapters.findIndex(c => c.id === chapter.id);
+        if (idx !== -1) {
+          course.chapters[idx] = chapter;
+          state.editCourse(course.id, { chapters: course.chapters });
+        }
+        closeModal();
+        renderCourseView(courseId);
+      };
+      document.getElementById('cancel-chapter-btn').onclick = closeModal;
+    }
+  });
+}
+
+// --- Add/Edit/Bulk JSON for Lessons ---
+function showBulkAddLessonsModal(courseId, chapterId) {
+  const jsonTemplate = `[
+  {
+    "id": 301,
+    "title": "New Lesson",
+    "content": "Lesson content...",
+    "exercises": []
+  }
+]`;
+  const faqHtml = `<b>Lessons FAQ</b><ul><li><b>id</b>: Unique number</li><li><b>title</b>: Lesson name</li><li><b>content</b>: Markdown/HTML</li><li><b>exercises</b>: Array of exercises</li></ul>`;
+  showModalTabbed({
+    title: 'Bulk Add Lessons (JSON)',
+    formHtml: `<h2>Bulk Add Lessons (JSON)</h2><textarea id="bulk-lessons-json" rows="10"></textarea><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="bulk-add-lessons-btn">Add</button><button class="admin-btn" id="bulk-cancel-lessons-btn">Cancel</button></div>`,
+    jsonTemplate,
+    jsonFaq: faqHtml,
+    onFormMount: () => {
+      document.getElementById('bulk-cancel-lessons-btn').onclick = closeModal;
+      document.getElementById('bulk-add-lessons-btn').onclick = () => {
+        try {
+          const arr = JSON.parse(document.getElementById('bulk-lessons-json').value);
+          const course = state.getCourses().find(c => c.id == courseId);
+          const chapter = course && course.chapters.find(ch => ch.id == chapterId);
+          if (Array.isArray(arr) && chapter) {
+            chapter.lessons = chapter.lessons.concat(arr);
+            state.editCourse(course.id, { chapters: course.chapters });
+            closeModal();
+            renderCourseWideChaptersView(course, course.chapters, chapterId);
+          }
+        } catch (e) { alert('Invalid JSON: ' + e.message); }
+      };
+    }
+  });
+}
+function showEditLessonModal(lesson, courseId, chapterId) {
+  const jsonTemplate = JSON.stringify(lesson, null, 2);
+  showModalTabbed({
+    title: 'Edit Lesson',
+    formHtml: `<h2>Edit Lesson</h2><label>Title: <input id="edit-lesson-title" value="${lesson.title}"></label><br><label>Content: <textarea id="edit-lesson-content" rows="6">${lesson.content || ''}</textarea></label><br><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="save-lesson-btn">Save</button><button class="admin-btn" id="cancel-lesson-btn">Cancel</button></div>`,
+    jsonTemplate,
+    onFormMount: () => {
+      document.getElementById('save-lesson-btn').onclick = () => {
+        lesson.title = document.getElementById('edit-lesson-title').value;
+        lesson.content = document.getElementById('edit-lesson-content').value;
+        const course = state.getCourses().find(c => c.id == courseId);
+        const chapter = course && course.chapters.find(ch => ch.id == chapterId);
+        const idx = chapter && chapter.lessons.findIndex(l => l.id === lesson.id);
+        if (chapter && idx !== -1) {
+          chapter.lessons[idx] = lesson;
+          state.editCourse(course.id, { chapters: course.chapters });
+        }
+        closeModal();
+        renderCourseWideChaptersView(course, course.chapters, chapterId);
+      };
+      document.getElementById('cancel-lesson-btn').onclick = closeModal;
+    }
+  });
+}
+
+// --- Add/Edit/Bulk JSON for Exercises ---
+function showBulkAddExercisesModal(courseId, chapterId, lessonId) {
+  const jsonTemplate = `[
+  {
+    "type": "code",
+    "prompt": "Write a Hello World program.",
+    "starter": "print('')",
+    "solution": "print('Hello, World!')"
+  }
+]`;
+  const faqHtml = `<b>Exercises FAQ</b><ul><li><b>type</b>: code, mcq, fill, drag, order</li><li><b>prompt</b>: Question/instruction</li><li><b>solution</b>: For code</li><li><b>options</b>: For mcq</li><li><b>answer</b>: For mcq/fill</li><li><b>items</b>, <b>order</b>: For drag/order</li></ul>`;
+  showModalTabbed({
+    title: 'Bulk Add Exercises (JSON)',
+    formHtml: `<h2>Bulk Add Exercises (JSON)</h2><textarea id="bulk-exercises-json" rows="10"></textarea><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="bulk-add-exercises-btn">Add</button><button class="admin-btn" id="bulk-cancel-exercises-btn">Cancel</button></div>`,
+    jsonTemplate,
+    jsonFaq: faqHtml,
+    onFormMount: () => {
+      document.getElementById('bulk-cancel-exercises-btn').onclick = closeModal;
+      document.getElementById('bulk-add-exercises-btn').onclick = () => {
+        try {
+          const arr = JSON.parse(document.getElementById('bulk-exercises-json').value);
+          const course = state.getCourses().find(c => c.id == courseId);
+          const chapter = course && course.chapters.find(ch => ch.id == chapterId);
+          const lesson = chapter && chapter.lessons.find(l => l.id == lessonId);
+          if (Array.isArray(arr) && lesson) {
+            lesson.exercises = lesson.exercises.concat(arr);
+            state.editCourse(course.id, { chapters: course.chapters });
+            closeModal();
+            renderCourseWideChaptersView(course, course.chapters, chapterId);
+          }
+        } catch (e) { alert('Invalid JSON: ' + e.message); }
+      };
+    }
+  });
+}
+function showEditExerciseModal(exercise, courseId, chapterId, lessonId) {
+  const jsonTemplate = JSON.stringify(exercise, null, 2);
+  showModalTabbed({
+    title: 'Edit Exercise',
+    formHtml: `<h2>Edit Exercise</h2><label>Type: <input id="edit-ex-type" value="${exercise.type}"></label><br><label>Prompt: <input id="edit-ex-prompt" value="${exercise.prompt}"></label><br><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="save-ex-btn">Save</button><button class="admin-btn" id="cancel-ex-btn">Cancel</button></div>`,
+    jsonTemplate,
+    onFormMount: () => {
+      document.getElementById('save-ex-btn').onclick = () => {
+        exercise.type = document.getElementById('edit-ex-type').value;
+        exercise.prompt = document.getElementById('edit-ex-prompt').value;
+        const course = state.getCourses().find(c => c.id == courseId);
+        const chapter = course && course.chapters.find(ch => ch.id == chapterId);
+        const lesson = chapter && chapter.lessons.find(l => l.id == lessonId);
+        const idx = lesson && lesson.exercises.findIndex(e => e === exercise);
+        if (lesson && idx !== -1) {
+          lesson.exercises[idx] = exercise;
+          state.editCourse(course.id, { chapters: course.chapters });
+        }
+        closeModal();
+        renderCourseWideChaptersView(course, course.chapters, chapterId);
+      };
+      document.getElementById('cancel-ex-btn').onclick = closeModal;
+    }
+  });
+}
