@@ -1,0 +1,37 @@
+/* Light Academia Theme */
+.theme-light {
+  --background: #f8f6f1;
+  --text: #2d2a26;
+  --accent: #bfa46f;
+  --card-bg: #fffdfa;
+  --card-border: #e6e1d5;
+  --switcher-bg: #e6e1d5;
+  --switcher-fg: #bfa46f;
+  --modal-bg: #fffdfa;
+  --modal-border: #bfa46f;
+  --button-bg: #ede6d6;
+  --button-fg: #2d2a26;
+  --button-hover: #bfa46f;
+}
+
+/* Dark Academia Theme */
+.theme-dark {
+  --background: #23211d;
+  --text: #e6e1d5;
+  --accent: #bfa46f;
+  --card-bg: #2d2a26;
+  --card-border: #3a362f;
+  --switcher-bg: #3a362f;
+  --switcher-fg: #bfa46f;
+  --modal-bg: #2d2a26;
+  --modal-border: #bfa46f;
+  --button-bg: #3a362f;
+  --button-fg: #e6e1d5;
+  --button-hover: #bfa46f;
+}
+
+body.theme-light, body.theme-dark {
+  background: var(--background);
+  color: var(--text);
+  transition: background 0.3s, color 0.3s;
+}
