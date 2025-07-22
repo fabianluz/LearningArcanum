@@ -140,7 +140,10 @@ function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     try {
-      state = JSON.parse(raw);
+      const imported = JSON.parse(raw);
+      // Instead of reassigning, update properties in place
+      Object.keys(state).forEach(k => delete state[k]);
+      Object.assign(state, imported);
     } catch (e) {
       // ignore
     }

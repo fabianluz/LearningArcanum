@@ -54,8 +54,13 @@ function renderProfileSelection() {
   // Profile select
   root.querySelectorAll('.profile-card').forEach(btn => {
     btn.onclick = () => {
-      state.setSelectedProfile(Number(btn.getAttribute('data-id')));
-      renderDashboardView();
+      const id = Number(btn.getAttribute('data-id'));
+      if (!isNaN(id)) {
+        state.setSelectedProfile(id);
+        renderDashboardView();
+      } else {
+        console.error('Invalid profile id:', btn.getAttribute('data-id'));
+      }
     };
   });
   // Create profile
@@ -127,6 +132,10 @@ function renderDashboardView() {
   const profile = state.getSelectedProfile();
   const courses = state.getCourses();
   const admin = state.isAdminMode();
+  if (courses.length > 1) {
+    renderSkillTreeDashboard();
+    return;
+  }
   root.innerHTML = `
     <nav class="main-navbar">
       <div class="navbar-left">
@@ -243,6 +252,9 @@ function renderCourseView(courseId) {
 function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
   const root = document.getElementById('app-root');
   const selectedChapter = chapters.find(ch => ch.id == selectedChapterId) || chapters[0];
+  // Calculate course-wide progress
+  const totalLessons = chapters.reduce((sum, ch) => sum + (Array.isArray(ch.lessons) ? ch.lessons.length : 0), 0);
+  const completedLessons = 0; // TODO: Use profile progress if available
   root.innerHTML = `
     <nav class="main-navbar">
       <div class="navbar-left">
@@ -265,16 +277,20 @@ function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
           <div class="course-desc">${course.desc}</div>
           <div class="course-progress-bar-wide">
             <div class="xp-bar-bg">
-              <div class="xp-bar-fill" style="width:60%"></div>
+              <div class="xp-bar-fill" style="width:${totalLessons ? Math.round(100 * completedLessons / totalLessons) : 0}%"></div>
             </div>
-            <span class="xp-label">12 / 20 lessons completed</span>
+            <span class="xp-label">${completedLessons} / ${totalLessons} lessons completed</span>
           </div>
         </div>
       </div>
       <div class="course-wide-columns">
         <div class="course-wide-main">
           <div class="chapters-wide-list">
-            ${chapters.map((chap, idx) => `
+            ${chapters.map((chap, idx) => {
+              const lessonCount = Array.isArray(chap.lessons) ? chap.lessons.length : 0;
+              const completed = 0; // TODO: Use profile progress if available
+              const percent = lessonCount ? Math.round(100 * completed / lessonCount) : 0;
+              return `
               <div class="chapter-wide-card${chap.id == selectedChapterId ? ' selected' : ''}" tabindex="0" data-chapter-id="${chap.id}">
                 <div class="chapter-wide-row">
                   <div class="chapter-wide-index">${idx + 1}</div>
@@ -283,12 +299,13 @@ function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
                     <div class="chapter-desc">${chap.desc || ''}</div>
                   </div>
                   <div class="chapter-wide-progress">
-                    <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${chap.percent || 0}%"></div></div>
-                    <span class="xp-label">${chap.progress || 0} / ${chap.total || 0} lessons</span>
+                    <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${percent}%"></div></div>
+                    <span class="xp-label">${completed} / ${lessonCount} lessons</span>
                   </div>
                 </div>
               </div>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
         </div>
         <div class="course-wide-divider"></div>
@@ -379,6 +396,38 @@ function renderChapterView(chapterId, courseId) {
     renderCourseWideChaptersView(course, course.chapters, chapterId);
   }
 }
+
+// Helper: Markdown rendering
+async function renderMarkdownToHtml(md, targetSelector) {
+  let html = md;
+  try {
+    if (!window.marked) {
+      await import('../js/lib/marked.js');
+    }
+    if (window.marked) {
+      html = window.marked.parse(md);
+    }
+  } catch (e) {
+    // fallback: plain text
+    html = md.replace(/\n/g, '<br>');
+  }
+  const el = document.querySelector(targetSelector);
+  if (el) el.innerHTML = html;
+}
+
+// Patch lesson view to use Markdown rendering in Codex
+const origRenderLessonView = renderLessonView;
+renderLessonView = function(courseId, chapterId, lessonId, exerciseIdx = 0) {
+  origRenderLessonView(courseId, chapterId, lessonId, exerciseIdx);
+  // After rendering, convert lesson content to HTML
+  const course = state.getCourses().find(c => c.id == courseId);
+  const chapter = course && course.chapters.find(ch => ch.id == chapterId);
+  const lessons = chapter && Array.isArray(chapter.lessons) ? chapter.lessons : [];
+  const lesson = lessons.find(l => l.id == lessonId) || lessons[0];
+  if (lesson && lesson.content) {
+    renderMarkdownToHtml(lesson.content, '#lesson-codex-md');
+  }
+};
 
 function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
   const root = document.getElementById('app-root');
@@ -702,8 +751,53 @@ function renderChapterSplitView(course, chapter, lessons, selectedLessonId) {
 }
 
 function showCreateProfileModal() {
-  // Placeholder for modal logic
-  alert('Create Profile Modal (to be implemented)');
+  const defaultAvatar = 'https://ui-avatars.com/api/?name=New+User&background=6a5d3b&color=fff&rounded=true';
+  showModalTabbed({
+    title: 'Create New Profile',
+    formHtml: `
+      <h2>Create New Profile</h2>
+      <label>Name: <input id="create-profile-name" placeholder="Your name"></label><br>
+      <label>Avatar URL: <input id="create-profile-avatar" value="${defaultAvatar}"></label><br>
+      <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+        <button class="admin-btn" id="create-profile-btn-modal">Create</button>
+        <button class="admin-btn" id="cancel-create-profile-btn">Cancel</button>
+      </div>
+    `,
+    jsonTemplate: `{
+  "name": "New User",
+  "avatar": "${defaultAvatar}"
+}`,
+    onFormMount: () => {
+      document.getElementById('cancel-create-profile-btn').onclick = closeModal;
+      document.getElementById('create-profile-btn-modal').onclick = () => {
+        const name = document.getElementById('create-profile-name').value.trim();
+        const avatar = document.getElementById('create-profile-avatar').value.trim() || defaultAvatar;
+        if (!name) {
+          alert('Please enter a name.');
+          return;
+        }
+        const newProfile = {
+          id: Date.now() + Math.floor(Math.random()*10000),
+          name,
+          avatar,
+          level: 1,
+          xp: 0,
+          xpToNext: 100,
+          streak: 0,
+          achievements: [],
+          completedLessons: [],
+          completedChapters: [],
+          completedCourses: [],
+          exerciseLog: [],
+          settings: { theme: 'light' }
+        };
+        state.addProfiles([newProfile]);
+        state.setSelectedProfile(newProfile.id);
+        closeModal();
+        renderDashboardView();
+      };
+    }
+  });
 }
 
 function showModalTabbed({title, formHtml, jsonTemplate, onFormMount, onJsonMount, jsonFaq}) {
@@ -1107,41 +1201,6 @@ function showEditCourseModal(course) {
         }
       };
       document.getElementById('cancel-course-btn').onclick = closeModal;
-    }
-  });
-}
-
-function showEditChapterModal(chapter, courseId) {
-  const jsonTemplate = `{
-  "title": "${chapter.title}",
-  "desc": "${chapter.desc || ''}"
-}`;
-  showModalTabbed({
-    title: 'Edit Chapter',
-    formHtml: `
-      <h2>Edit Chapter</h2>
-      <label>Title: <input id="edit-chapter-title" value="${chapter.title}"></label><br>
-      <label>Description: <input id="edit-chapter-desc" value="${chapter.desc || ''}"></label><br>
-      <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
-        <button class="admin-btn" id="save-chapter-btn">Save</button>
-        <button class="admin-btn" id="cancel-chapter-btn">Cancel</button>
-      </div>
-    `,
-    jsonTemplate,
-    onFormMount: () => {
-      document.getElementById('save-chapter-btn').onclick = () => {
-        chapter.title = document.getElementById('edit-chapter-title').value;
-        chapter.desc = document.getElementById('edit-chapter-desc').value;
-        const course = state.getCourses().find(c => c.id == courseId);
-        const idx = course.chapters.findIndex(c => c.id === chapter.id);
-        if (idx !== -1) {
-          course.chapters[idx] = chapter;
-          state.editCourse(course.id, { chapters: course.chapters });
-        }
-        closeModal();
-        renderCourseView(courseId);
-      };
-      document.getElementById('cancel-chapter-btn').onclick = closeModal;
     }
   });
 }
@@ -1666,29 +1725,6 @@ function showBulkAddChaptersModal(courseId) {
     }
   });
 }
-function showEditChapterModal(chapter, courseId) {
-  const jsonTemplate = JSON.stringify(chapter, null, 2);
-  showModalTabbed({
-    title: 'Edit Chapter',
-    formHtml: `<h2>Edit Chapter</h2><label>Title: <input id="edit-chapter-title" value="${chapter.title}"></label><br><label>Description: <input id="edit-chapter-desc" value="${chapter.desc || ''}"></label><br><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="save-chapter-btn">Save</button><button class="admin-btn" id="cancel-chapter-btn">Cancel</button></div>`,
-    jsonTemplate,
-    onFormMount: () => {
-      document.getElementById('save-chapter-btn').onclick = () => {
-        chapter.title = document.getElementById('edit-chapter-title').value;
-        chapter.desc = document.getElementById('edit-chapter-desc').value;
-        const course = state.getCourses().find(c => c.id == courseId);
-        const idx = course.chapters.findIndex(c => c.id === chapter.id);
-        if (idx !== -1) {
-          course.chapters[idx] = chapter;
-          state.editCourse(course.id, { chapters: course.chapters });
-        }
-        closeModal();
-        renderCourseView(courseId);
-      };
-      document.getElementById('cancel-chapter-btn').onclick = closeModal;
-    }
-  });
-}
 
 // --- Add/Edit/Bulk JSON for Lessons ---
 function showBulkAddLessonsModal(courseId, chapterId) {
@@ -1721,30 +1757,6 @@ function showBulkAddLessonsModal(courseId, chapterId) {
           }
         } catch (e) { alert('Invalid JSON: ' + e.message); }
       };
-    }
-  });
-}
-function showEditLessonModal(lesson, courseId, chapterId) {
-  const jsonTemplate = JSON.stringify(lesson, null, 2);
-  showModalTabbed({
-    title: 'Edit Lesson',
-    formHtml: `<h2>Edit Lesson</h2><label>Title: <input id="edit-lesson-title" value="${lesson.title}"></label><br><label>Content: <textarea id="edit-lesson-content" rows="6">${lesson.content || ''}</textarea></label><br><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="save-lesson-btn">Save</button><button class="admin-btn" id="cancel-lesson-btn">Cancel</button></div>`,
-    jsonTemplate,
-    onFormMount: () => {
-      document.getElementById('save-lesson-btn').onclick = () => {
-        lesson.title = document.getElementById('edit-lesson-title').value;
-        lesson.content = document.getElementById('edit-lesson-content').value;
-        const course = state.getCourses().find(c => c.id == courseId);
-        const chapter = course && course.chapters.find(ch => ch.id == chapterId);
-        const idx = chapter && chapter.lessons.findIndex(l => l.id === lesson.id);
-        if (chapter && idx !== -1) {
-          chapter.lessons[idx] = lesson;
-          state.editCourse(course.id, { chapters: course.chapters });
-        }
-        closeModal();
-        renderCourseWideChaptersView(course, course.chapters, chapterId);
-      };
-      document.getElementById('cancel-lesson-btn').onclick = closeModal;
     }
   });
 }
@@ -1784,28 +1796,210 @@ function showBulkAddExercisesModal(courseId, chapterId, lessonId) {
     }
   });
 }
-function showEditExerciseModal(exercise, courseId, chapterId, lessonId) {
-  const jsonTemplate = JSON.stringify(exercise, null, 2);
-  showModalTabbed({
-    title: 'Edit Exercise',
-    formHtml: `<h2>Edit Exercise</h2><label>Type: <input id="edit-ex-type" value="${exercise.type}"></label><br><label>Prompt: <input id="edit-ex-prompt" value="${exercise.prompt}"></label><br><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="save-ex-btn">Save</button><button class="admin-btn" id="cancel-ex-btn">Cancel</button></div>`,
-    jsonTemplate,
-    onFormMount: () => {
-      document.getElementById('save-ex-btn').onclick = () => {
-        exercise.type = document.getElementById('edit-ex-type').value;
-        exercise.prompt = document.getElementById('edit-ex-prompt').value;
-        const course = state.getCourses().find(c => c.id == courseId);
-        const chapter = course && course.chapters.find(ch => ch.id == chapterId);
-        const lesson = chapter && chapter.lessons.find(l => l.id == lessonId);
-        const idx = lesson && lesson.exercises.findIndex(e => e === exercise);
-        if (lesson && idx !== -1) {
-          lesson.exercises[idx] = exercise;
-          state.editCourse(course.id, { chapters: course.chapters });
+
+// Ensure default profile and course if none exist
+(function ensureDefaultState() {
+  const profiles = state.getProfiles();
+  const courses = state.getCourses();
+  if (!profiles || profiles.length === 0) {
+    state.addProfiles([{ id: Date.now(), name: 'Demo User', avatar: 'https://ui-avatars.com/api/?name=Demo+User', level: 1, xp: 0, xpToNext: 100, streak: 0, achievements: [], completedLessons: [], completedChapters: [], completedCourses: [], exerciseLog: [], settings: { theme: 'light' } }]);
+  }
+  if (!courses || courses.length === 0) {
+    state.addCourses([{ id: Date.now(), title: 'Demo Course', desc: 'A sample course.', icon: '📘', chapters: [] }]);
+  }
+})();
+
+// Patch dashboard to support drag-and-drop reordering of courses (admin mode only)
+const origRenderDashboardViewDnd = renderDashboardView;
+renderDashboardView = function() {
+  origRenderDashboardViewDnd.apply(this, arguments);
+  const root = document.getElementById('app-root');
+  const admin = state.isAdminMode();
+  if (!admin) return;
+  const grid = root.querySelector('.courses-grid');
+  if (!grid) return;
+  let dragSrcIdx = null;
+  grid.querySelectorAll('.course-grid-card').forEach((card, idx) => {
+    card.setAttribute('draggable', 'true');
+    card.ondragstart = (e) => {
+      dragSrcIdx = idx;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    };
+    card.ondragend = () => {
+      card.classList.remove('dragging');
+      dragSrcIdx = null;
+      grid.querySelectorAll('.course-grid-card').forEach(c => c.classList.remove('drag-over'));
+    };
+    card.ondragover = (e) => {
+      e.preventDefault();
+      if (dragSrcIdx !== null && dragSrcIdx !== idx) {
+        card.classList.add('drag-over');
+      }
+    };
+    card.ondragleave = () => {
+      card.classList.remove('drag-over');
+    };
+    card.ondrop = (e) => {
+      e.preventDefault();
+      card.classList.remove('drag-over');
+      if (dragSrcIdx !== null && dragSrcIdx !== idx) {
+        // Reorder courses in state
+        const courses = state.getCourses();
+        const moved = courses.splice(dragSrcIdx, 1)[0];
+        courses.splice(idx, 0, moved);
+        state.editCourse(moved.id, moved); // persist
+        localStorage.setItem('arcanum-app-state', JSON.stringify(getSerializableState()));
+        renderDashboardView();
+      }
+    };
+  });
+};
+
+function renderSkillTreeDashboard() {
+  const root = document.getElementById('app-root');
+  const profile = state.getSelectedProfile();
+  const courses = state.getCourses();
+  const admin = state.isAdminMode();
+  // If only one course, fallback to grid
+  if (courses.length <= 1) return renderDashboardView();
+  // Radial layout
+  const RADIUS = 260;
+  const centerX = 400, centerY = 340;
+  const nodeR = 44;
+  const angleStep = (2 * Math.PI) / courses.length;
+  // Map course id to index for dependency lines
+  const idToIdx = Object.fromEntries(courses.map((c, i) => [c.id, i]));
+  // Calculate node positions
+  const nodes = courses.map((c, i) => {
+    const angle = i * angleStep - Math.PI/2;
+    return {
+      ...c,
+      x: centerX + RADIUS * Math.cos(angle),
+      y: centerY + RADIUS * Math.sin(angle),
+      idx: i
+    };
+  });
+  // SVG edges for dependencies
+  let edges = '';
+  courses.forEach((c, i) => {
+    if (Array.isArray(c.prerequisites)) {
+      c.prerequisites.forEach(prereqId => {
+        const from = nodes[idToIdx[prereqId]];
+        const to = nodes[i];
+        if (from && to) {
+          edges += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#bfa46f" stroke-width="3" marker-end="url(#arrow)" />`;
         }
-        closeModal();
-        renderCourseWideChaptersView(course, course.chapters, chapterId);
-      };
-      document.getElementById('cancel-ex-btn').onclick = closeModal;
+      });
     }
   });
+  // SVG nodes
+  const nodeSvgs = nodes.map((c, i) => {
+    const percent = c.percent || 0;
+    return `
+      <g class="skill-node" data-course-id="${c.id}" style="cursor:pointer;">
+        <circle cx="${c.x}" cy="${c.y}" r="${nodeR}" fill="#fff" stroke="#bfa46f" stroke-width="3"/>
+        <circle cx="${c.x}" cy="${c.y}" r="${nodeR-7}" fill="#f7f3e8" stroke="#e0d3b0" stroke-width="2"/>
+        <text x="${c.x}" y="${c.y-8}" text-anchor="middle" font-size="1.7em">${c.icon || '📘'}</text>
+        <text x="${c.x}" y="${c.y+24}" text-anchor="middle" font-size="0.95em" fill="#6a5d3b">${c.title}</text>
+        <circle cx="${c.x}" cy="${c.y}" r="${nodeR-2}" fill="none" stroke="#bfa46f" stroke-width="5" stroke-dasharray="${2*Math.PI*(nodeR-2)}" stroke-dashoffset="${2*Math.PI*(nodeR-2)*(1-percent/100)}"/>
+      </g>
+    `;
+  }).join('');
+  root.innerHTML = `
+    <nav class="main-navbar">
+      <div class="navbar-left"><span class="navbar-logo">Arcanum</span></div>
+      <div class="navbar-center"><span class="navbar-title">Skill Tree</span></div>
+      <div class="navbar-right">
+        <button class="navbar-link" id="nav-profile">Profile</button>
+        <button class="navbar-link" id="nav-progress">Progress</button>
+        <button class="navbar-link" id="nav-achievements">Achievements</button>
+        ${renderResetDemoButton()}
+        ${renderAdminSlider()}
+      </div>
+    </nav>
+    <section class="dashboard-skilltree">
+      <svg width="100%" height="700" viewBox="0 0 800 700" style="background:var(--background);">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L10,5 L0,10 z" fill="#bfa46f" />
+          </marker>
+        </defs>
+        ${edges}
+        ${nodeSvgs}
+      </svg>
+    </section>
+  `;
+  // Node click
+  root.querySelectorAll('.skill-node').forEach(node => {
+    node.onclick = () => {
+      const courseId = Number(node.getAttribute('data-course-id'));
+      const course = state.getCourses().find(c => Number(c.id) === courseId);
+      if (course) {
+        renderCourseWideChaptersView(course, Array.isArray(course.chapters) ? course.chapters : [], null);
+      } else {
+        alert('Course not found.');
+      }
+    };
+  });
+  // Drag-and-drop for courses (admin mode)
+  if (admin) {
+    let dragSrcIdx = null;
+    const svgNodes = Array.from(root.querySelectorAll('.skill-node'));
+    svgNodes.forEach((node, idx) => {
+      node.setAttribute('draggable', 'true');
+      node.ondragstart = (e) => {
+        dragSrcIdx = idx;
+        node.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      };
+      node.ondragend = () => {
+        node.classList.remove('dragging');
+        dragSrcIdx = null;
+        svgNodes.forEach(n => n.classList.remove('drag-over'));
+      };
+      node.ondragover = (e) => {
+        e.preventDefault();
+        if (dragSrcIdx !== null && dragSrcIdx !== idx) {
+          node.classList.add('drag-over');
+        }
+      };
+      node.ondragleave = () => {
+        node.classList.remove('drag-over');
+      };
+      node.ondrop = (e) => {
+        e.preventDefault();
+        node.classList.remove('drag-over');
+        if (dragSrcIdx !== null && dragSrcIdx !== idx) {
+          const courses = state.getCourses();
+          const moved = courses.splice(dragSrcIdx, 1)[0];
+          courses.splice(idx, 0, moved);
+          state.editCourse(moved.id, moved);
+          localStorage.setItem('arcanum-app-state', JSON.stringify(getSerializableState()));
+          renderSkillTreeDashboard();
+        }
+      };
+    });
+  }
+  // Nav buttons
+  root.querySelector('#nav-profile').onclick = renderProfileScreen;
+  root.querySelector('#nav-progress').onclick = renderProgressScreen;
+  root.querySelector('#nav-achievements').onclick = renderAchievementsScreen;
+  root.querySelector('#admin-mode-toggle').onchange = (e) => {
+    state.setAdminMode(e.target.checked);
+    renderSkillTreeDashboard();
+  };
+  const resetBtn = root.querySelector('#reset-demo-btn');
+  if (resetBtn) resetBtn.onclick = () => { localStorage.clear(); location.reload(); };
+}
+
+// Helper: Get a plain serializable state snapshot
+function getSerializableState() {
+  return {
+    profiles: state.getProfiles(),
+    courses: state.getCourses(),
+    selectedProfileId: state.getSelectedProfile() ? state.getSelectedProfile().id : 1,
+    adminMode: state.isAdminMode(),
+    appSettings: state.appSettings || {}
+  };
 }
