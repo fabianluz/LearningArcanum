@@ -152,6 +152,50 @@ function loadState() {
 
 loadState();
 
+// SRS (Spaced Repetition System) helpers
+const SRS_INTERVALS = [1, 3, 7, 14, 30, 60, 120]; // days
+
+export function ensureSRSQueue(profile) {
+  if (!profile.srsQueue) profile.srsQueue = [];
+}
+
+export function getDueSRSItems(profile, now = Date.now()) {
+  ensureSRSQueue(profile);
+  return profile.srsQueue.filter(item => item.nextReview <= now);
+}
+
+export function scheduleSRSItem(profile, id, type, result) {
+  ensureSRSQueue(profile);
+  let entry = profile.srsQueue.find(e => e.id === id && e.type === type);
+  const now = Date.now();
+  if (!entry) {
+    entry = {
+      id, type,
+      lastReviewed: now,
+      nextReview: now + SRS_INTERVALS[0]*86400000,
+      interval: SRS_INTERVALS[0],
+      ease: 2.5,
+      streak: 0,
+      failures: 0
+    };
+    profile.srsQueue.push(entry);
+  }
+  if (result === 'success') {
+    entry.streak++;
+    entry.failures = 0;
+    const nextInterval = SRS_INTERVALS[Math.min(entry.streak, SRS_INTERVALS.length-1)];
+    entry.interval = nextInterval;
+    entry.nextReview = now + nextInterval*86400000;
+    entry.lastReviewed = now;
+  } else if (result === 'fail') {
+    entry.streak = 0;
+    entry.failures++;
+    entry.interval = SRS_INTERVALS[0];
+    entry.nextReview = now + SRS_INTERVALS[0]*86400000;
+    entry.lastReviewed = now;
+  }
+}
+
 export function getProfiles() {
   return state.profiles;
 }

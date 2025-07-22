@@ -1,4 +1,7 @@
 import * as state from './state.js';
+import * as profileManager from './profileManager.js';
+import { enableDragAndDrop } from './dragDrop.js';
+import { getDueSRSItems, scheduleSRSItem, ensureSRSQueue } from './state.js';
 
 export function initUI() {
   renderThemeSwitcher();
@@ -25,7 +28,7 @@ function toggleTheme() {
 
 function renderProfileSelection() {
   const root = document.getElementById('app-root');
-  const profiles = state.getProfiles();
+  const profiles = profileManager.getAllProfiles();
   const admin = state.isAdminMode();
   root.innerHTML = `
     <section class="profile-select fade-in">
@@ -45,6 +48,7 @@ function renderProfileSelection() {
       <div style="margin-top:1.2rem;display:flex;gap:1rem;justify-content:center;">
         <button class="create-profile-btn" id="create-profile-btn">+ Create New Profile</button>
         ${admin ? `<button class="admin-btn" id="add-profile-bulk-btn">+ Add Profiles (JSON)</button>` : ''}
+        <button class="admin-btn" id="import-json-btn">Import from JSON</button>
       </div>
       <div style="margin-top:1.2rem;display:flex;justify-content:flex-end;">
         <div>${renderAdminSlider()}</div>
@@ -56,7 +60,7 @@ function renderProfileSelection() {
     btn.onclick = () => {
       const id = Number(btn.getAttribute('data-id'));
       if (!isNaN(id)) {
-        state.setSelectedProfile(id);
+        profileManager.setSelectedProfile(id);
         renderDashboardView();
       } else {
         console.error('Invalid profile id:', btn.getAttribute('data-id'));
@@ -76,7 +80,7 @@ function renderProfileSelection() {
     root.querySelectorAll('.edit-profile-btn').forEach(btn => {
       btn.onclick = () => {
         const id = Number(btn.getAttribute('data-id'));
-        const profile = state.getProfiles().find(p => p.id === id);
+        const profile = profileManager.getProfileById(id);
         showEditProfileModal(profile);
       };
     });
@@ -84,7 +88,7 @@ function renderProfileSelection() {
       btn.onclick = () => {
         const id = Number(btn.getAttribute('data-id'));
         if (confirm('Delete this profile?')) {
-          state.deleteProfile(id);
+          profileManager.deleteProfile(id);
           renderProfileSelection();
         }
       };
@@ -92,6 +96,8 @@ function renderProfileSelection() {
     const bulkBtn = root.querySelector('#add-profile-bulk-btn');
     if (bulkBtn) bulkBtn.onclick = () => showBulkAddModal('profile');
   }
+  // Import from JSON
+  root.querySelector('#import-json-btn').onclick = showImportStateModal;
 }
 
 // Helper: Modal rendering
@@ -132,6 +138,8 @@ function renderDashboardView() {
   const profile = state.getSelectedProfile();
   const courses = state.getCourses();
   const admin = state.isAdminMode();
+  ensureSRSQueue(profile);
+  const dueSRS = getDueSRSItems(profile);
   if (courses.length > 1) {
     renderSkillTreeDashboard();
     return;
@@ -148,6 +156,7 @@ function renderDashboardView() {
         <button class="navbar-link" id="nav-profile">Profile</button>
         <button class="navbar-link" id="nav-progress">Progress</button>
         <button class="navbar-link" id="nav-achievements">Achievements</button>
+        <button class="navbar-link daily-review-btn" id="nav-daily-review">Daily Review${dueSRS.length ? ` <span class='daily-review-badge'>${dueSRS.length}</span>` : ''}</button>
         ${renderResetDemoButton()}
         ${renderAdminSlider()}
       </div>
@@ -173,23 +182,33 @@ function renderDashboardView() {
           ${admin ? `<button class="admin-btn" id="add-course-btn">+ Add Course(s)</button>` : ''}
         </div>
         <div class="courses-grid">
-          ${courses.map(course => `
+          ${courses.map(course => {
+            // Calculate total and completed lessons for this course
+            const chapters = Array.isArray(course.chapters) ? course.chapters : [];
+            const allLessons = chapters.flatMap(ch => Array.isArray(ch.lessons) ? ch.lessons : []);
+            const totalLessons = allLessons.length;
+            const completedLessons = Array.isArray(profile.completedLessons)
+              ? allLessons.filter(lesson => profile.completedLessons.includes(lesson.id)).length
+              : 0;
+            const percent = totalLessons ? Math.round(100 * completedLessons / totalLessons) : 0;
+            return `
             <div class="course-grid-card" tabindex="0" data-course-id="${course.id}">
               <div class="course-grid-icon">${course.icon}</div>
               <div class="course-grid-title">${course.title}</div>
               <div class="course-grid-desc">${course.desc}</div>
               <div class="course-grid-progress">
                 <div class="xp-bar-bg">
-                  <div class="xp-bar-fill" style="width:${course.percent}%"></div>
+                  <div class="xp-bar-fill" style="width:${percent}%"></div>
                 </div>
-                <span class="xp-label">${course.progress} / ${course.total} lessons</span>
+                <span class="xp-label">${completedLessons} / ${totalLessons} lessons</span>
               </div>
               ${admin ? `<div class="admin-course-actions">
                 <button class="admin-btn edit-course-btn" data-id="${course.id}">Edit</button>
                 <button class="admin-btn delete-course-btn" data-id="${course.id}">Delete</button>
               </div>` : ''}
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       </div>
     </section>
@@ -203,6 +222,7 @@ function renderDashboardView() {
   root.querySelector('#nav-profile').onclick = renderProfileScreen;
   root.querySelector('#nav-progress').onclick = renderProgressScreen;
   root.querySelector('#nav-achievements').onclick = () => alert('Achievements view coming soon!');
+  root.querySelector('#nav-daily-review').onclick = renderDailyReviewScreen;
   // Admin slider
   root.querySelector('#admin-mode-toggle').onchange = (e) => {
     state.setAdminMode(e.target.checked);
@@ -230,6 +250,16 @@ function renderDashboardView() {
         }
       };
     });
+    if (admin) {
+      enableDragAndDrop('.courses-grid', '.course-grid-card', (newOrder) => {
+        const courses = state.getCourses();
+        const newCourses = newOrder.map(id => courses.find(c => String(c.id) === id));
+        // Overwrite state.courses
+        state.courses = newCourses;
+        localStorage.setItem('arcanum-app-state', JSON.stringify(getSerializableState()));
+        renderDashboardView();
+      });
+    }
   }
   const resetBtn = root.querySelector('#reset-demo-btn');
   if (resetBtn) resetBtn.onclick = () => {
@@ -251,6 +281,8 @@ function renderCourseView(courseId) {
 
 function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
   const root = document.getElementById('app-root');
+  const profile = state.getSelectedProfile();
+  const admin = state.isAdminMode();
   const selectedChapter = chapters.find(ch => ch.id == selectedChapterId) || chapters[0];
   // Calculate course-wide progress
   const totalLessons = chapters.reduce((sum, ch) => sum + (Array.isArray(ch.lessons) ? ch.lessons.length : 0), 0);
@@ -265,6 +297,7 @@ function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
       </div>
       <div class="navbar-right">
         <button class="navbar-link" id="back-dashboard">Dashboard</button>
+        <button class="navbar-link danger" id="reset-course-progress-btn">Reset Progress</button>
         ${renderResetDemoButton()}
         ${renderAdminSlider()}
       </div>
@@ -285,6 +318,7 @@ function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
       </div>
       <div class="course-wide-columns">
         <div class="course-wide-main">
+          ${admin ? `<button class="admin-btn" id="add-chapter-btn">+ Add Chapter</button>` : ''}
           <div class="chapters-wide-list">
             ${chapters.map((chap, idx) => {
               const lessonCount = Array.isArray(chap.lessons) ? chap.lessons.length : 0;
@@ -302,6 +336,10 @@ function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
                     <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${percent}%"></div></div>
                     <span class="xp-label">${completed} / ${lessonCount} lessons</span>
                   </div>
+                  ${admin ? `<div class="admin-chapter-actions">
+                    <button class="admin-btn edit-chapter-btn" data-id="${chap.id}">Edit</button>
+                    <button class="admin-btn delete-chapter-btn" data-id="${chap.id}">Delete</button>
+                  </div>` : ''}
                 </div>
               </div>
               `;
@@ -313,22 +351,40 @@ function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
           <div class="course-accordions">
             <div class="accordion-item">
               <button class="accordion-header" data-acc-id="resources">Resources</button>
+              ${admin ? `<button class="admin-btn edit-accordion-btn" data-type="resources">Edit</button>` : ''}
               <div class="accordion-body" id="acc-body-resources" style="display:none;">
-                <ul>
-                  <li><a href="#">Official Python Docs</a></li>
-                  <li><a href="#">Python Tutorial (W3Schools)</a></li>
-                  <li><a href="#">Real Python - Beginner Guide</a></li>
+                <ul class="accordion-list" id="resources-list">
+                  ${(Array.isArray(selectedChapter.resources) ? selectedChapter.resources : []).map((r, i) => `
+                    <li class="accordion-list-item" data-index="${i}">
+                      ${admin ? `<span class="drag-handle">☰</span>` : ''}
+                      ${r.url ? `<a href="${r.url}" target="_blank">${r.label}</a>` : r.label}
+                      ${admin ? `<button class="admin-btn edit-accordion-item-btn" data-type="resources" data-index="${i}">Edit</button>` : ''}
+                      ${admin ? `<button class="admin-btn delete-accordion-item-btn" data-type="resources" data-index="${i}">Delete</button>` : ''}
+                    </li>
+                  `).join('')}
                 </ul>
+                ${admin ? `<button class="admin-btn add-accordion-item-btn" data-type="resources">+ Add Accordion Item</button>` : ''}
               </div>
             </div>
             <div class="accordion-item">
               <button class="accordion-header" data-acc-id="questions">Questions</button>
+              ${admin ? `<button class="admin-btn edit-accordion-btn" data-type="questions">Edit</button>` : ''}
               <div class="accordion-body" id="acc-body-questions" style="display:none;">
-                <ul>
-                  <li>What is Python used for?</li>
-                  <li>How do you install Python?</li>
-                  <li>What is a variable?</li>
+                <ul class="accordion-list" id="questions-list">
+                  ${(Array.isArray(selectedChapter.questions) ? selectedChapter.questions : []).map((q, i, arr) => `
+                    <li class="accordion-list-item" data-index="${i}">
+                      ${admin ? `<span class="drag-handle">☰</span>` : ''}
+                      <div class="question-block">
+                        <div class="question-text">${typeof q === 'object' ? q.question : q}</div>
+                        <div class="question-answer" id="question-answer-${i}">${typeof q === 'object' && q.answer ? q.answer : ''}</div>
+                      </div>
+                      ${admin ? `<button class="admin-btn edit-accordion-item-btn" data-type="questions" data-index="${i}">Edit</button>` : ''}
+                      ${admin ? `<button class="admin-btn delete-accordion-item-btn" data-type="questions" data-index="${i}">Delete</button>` : ''}
+                    </li>
+                    ${i < arr.length - 1 ? '<hr class="question-divider" />' : ''}
+                  `).join('')}
                 </ul>
+                ${admin ? `<button class="admin-btn add-accordion-item-btn" data-type="questions">+ Add Accordion Item</button>` : ''}
               </div>
             </div>
           </div>
@@ -355,6 +411,17 @@ function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
       }
     };
   });
+  // Drag-and-drop for chapters (admin mode)
+  if (state.isAdminMode()) {
+    enableDragAndDrop('.chapters-wide-list', '.chapter-wide-card', (newOrder) => {
+      // newOrder is array of data-id strings
+      const newChapters = newOrder.map(id => chapters.find(ch => String(ch.id) === id));
+      course.chapters = newChapters;
+      state.editCourse(course.id, { chapters: newChapters });
+      localStorage.setItem('arcanum-app-state', JSON.stringify(getSerializableState()));
+      renderCourseWideChaptersView(course, newChapters, newChapters[0]?.id);
+    });
+  }
   // Accordion logic (fix)
   root.querySelectorAll('.accordion-header').forEach(btn => {
     btn.onclick = () => {
@@ -380,6 +447,348 @@ function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
     localStorage.clear();
     location.reload();
   };
+  // Reset course progress button
+  const resetCourseBtn = root.querySelector('#reset-course-progress-btn');
+  if (resetCourseBtn) {
+    resetCourseBtn.onclick = () => {
+      if (!confirm('Are you sure you want to reset your progress for this course? This cannot be undone.')) return;
+      // Remove all completedLessons, exerciseLog, and SRS entries for this course
+      const chapters = Array.isArray(course.chapters) ? course.chapters : [];
+      const allLessonIds = chapters.flatMap(ch => Array.isArray(ch.lessons) ? ch.lessons.map(l => l.id) : []);
+      // Remove lessons from completedLessons
+      if (Array.isArray(profile.completedLessons)) {
+        profile.completedLessons = profile.completedLessons.filter(id => !allLessonIds.includes(id));
+      }
+      // Remove exercises from exerciseLog
+      if (Array.isArray(profile.exerciseLog)) {
+        profile.exerciseLog = profile.exerciseLog.filter(e => !allLessonIds.includes(e.lessonId));
+      }
+      // Remove SRS entries for these lessons/exercises
+      if (Array.isArray(profile.srsQueue)) {
+        profile.srsQueue = profile.srsQueue.filter(e => !allLessonIds.includes(e.id));
+      }
+      state.editProfile(profile.id, profile);
+      renderCourseWideChaptersView(course, chapters, chapters[0]?.id);
+    };
+  }
+  // Admin actions for chapters
+  if (admin) {
+    // Add Chapter
+    const addChapterBtn = root.querySelector('#add-chapter-btn');
+    if (addChapterBtn) {
+      addChapterBtn.onclick = () => {
+        showModal(`
+          <h2>Add Chapter</h2>
+          <label>Title: <input id="add-chapter-title"></label><br>
+          <label>Description: <input id="add-chapter-desc"></label><br>
+          <label>Icon: <input id="add-chapter-icon" value="📖"></label><br>
+          <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
+            <button class="admin-btn" id="save-add-chapter-btn">Add</button>
+            <button class="admin-btn" id="cancel-add-chapter-btn">Cancel</button>
+          </div>
+        `);
+        document.getElementById('cancel-add-chapter-btn').onclick = closeModal;
+        document.getElementById('save-add-chapter-btn').onclick = () => {
+          const title = document.getElementById('add-chapter-title').value.trim();
+          const desc = document.getElementById('add-chapter-desc').value.trim();
+          const icon = document.getElementById('add-chapter-icon').value.trim() || '📖';
+          if (!title) return alert('Title is required');
+          const newChapter = {
+            id: Date.now() + Math.floor(Math.random()*10000),
+            title,
+            desc,
+            icon,
+            lessons: [],
+            resources: [],
+            questions: []
+          };
+          chapters.push(newChapter);
+          state.editCourse(course.id, { chapters });
+          closeModal();
+          renderCourseWideChaptersView(course, chapters, newChapter.id);
+        };
+      };
+    }
+    // Add Accordion Item
+    root.querySelectorAll('.add-accordion-item-btn').forEach(btn => {
+      btn.onclick = () => {
+        const type = btn.getAttribute('data-type');
+        showAddAccordionItemModal(course, selectedChapter, type);
+      };
+    });
+    root.querySelectorAll('.edit-chapter-btn').forEach(btn => {
+      btn.onclick = () => {
+        const id = Number(btn.getAttribute('data-id'));
+        const chapter = chapters.find(ch => ch.id === id);
+        showEditChapterModal(course.id, chapter);
+      };
+    });
+    root.querySelectorAll('.delete-chapter-btn').forEach(btn => {
+      btn.onclick = () => {
+        const id = Number(btn.getAttribute('data-id'));
+        if (confirm('Delete this chapter?')) {
+          const idx = chapters.findIndex(ch => ch.id === id);
+          if (idx !== -1) {
+            chapters.splice(idx, 1);
+            state.editCourse(course.id, { chapters });
+            renderCourseWideChaptersView(course, chapters, chapters[0]?.id);
+          }
+        }
+      };
+    });
+    // Edit accordions
+    root.querySelectorAll('.edit-accordion-btn').forEach(btn => {
+      btn.onclick = () => {
+        const type = btn.getAttribute('data-type');
+        showEditAccordionModal(course, selectedChapter, type);
+      };
+    });
+    // Delete Accordion Item
+    root.querySelectorAll('.delete-accordion-item-btn').forEach(btn => {
+      btn.onclick = () => {
+        const type = btn.getAttribute('data-type');
+        const idx = Number(btn.getAttribute('data-index'));
+        if (type === 'resources' && Array.isArray(selectedChapter.resources)) {
+          selectedChapter.resources.splice(idx, 1);
+        } else if (type === 'questions' && Array.isArray(selectedChapter.questions)) {
+          selectedChapter.questions.splice(idx, 1);
+        }
+        state.editCourse(course.id, { chapters });
+        renderCourseWideChaptersView(course, chapters, selectedChapter.id);
+      };
+    });
+    // Drag-and-drop for resources
+    enableDragAndDrop('#resources-list', '.accordion-list-item', (newOrder) => {
+      if (!Array.isArray(selectedChapter.resources)) return;
+      const reordered = newOrder.map(idx => selectedChapter.resources[Number(idx)]);
+      selectedChapter.resources = reordered;
+      state.editCourse(course.id, { chapters });
+      renderCourseWideChaptersView(course, chapters, selectedChapter.id);
+    });
+    // Drag-and-drop for questions
+    enableDragAndDrop('#questions-list', '.accordion-list-item', (newOrder) => {
+      if (!Array.isArray(selectedChapter.questions)) return;
+      const reordered = newOrder.map(idx => selectedChapter.questions[Number(idx)]);
+      selectedChapter.questions = reordered;
+      state.editCourse(course.id, { chapters });
+      renderCourseWideChaptersView(course, chapters, selectedChapter.id);
+    });
+    // Edit Accordion Item
+    root.querySelectorAll('.edit-accordion-item-btn').forEach(btn => {
+      btn.onclick = () => {
+        const type = btn.getAttribute('data-type');
+        const idx = Number(btn.getAttribute('data-index'));
+        showEditAccordionItemModal(course, selectedChapter, type, idx);
+      };
+    });
+  }
+  // Render markdown for answers
+  if (Array.isArray(selectedChapter.questions)) {
+    selectedChapter.questions.forEach((q, i) => {
+      if (typeof q === 'object' && q.answer) {
+        renderMarkdownToHtml(q.answer, `#question-answer-${i}`);
+      }
+    });
+  }
+}
+
+function showEditAccordionModal(course, chapter, type) {
+  let value = '';
+  let label = '';
+  let jsonTemplate = '';
+  let formHtml = '';
+  if (type === 'resources') {
+    value = JSON.stringify(chapter.resources || [], null, 2);
+    label = 'Resources (array of {label, url})';
+    jsonTemplate = `[
+  { "label": "Official Docs", "url": "https://example.com" },
+  { "label": "Another Resource", "url": "https://example.com" }
+]`;
+    // Form for resources: one field per resource (for simplicity, just edit the first resource)
+    const res = (chapter.resources && chapter.resources[0]) || { label: '', url: '' };
+    formHtml = `
+      <h2>Edit Resource (first item)</h2>
+      <label>Label: <input id="form-resource-label" value="${res.label || ''}"></label><br>
+      <label>URL: <input id="form-resource-url" value="${res.url || ''}"></label><br>
+      <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
+        <button class="admin-btn" id="save-accordion-form-btn">Save</button>
+        <button class="admin-btn" id="cancel-accordion-form-btn">Cancel</button>
+      </div>
+    `;
+  } else if (type === 'questions') {
+    value = JSON.stringify((chapter.questions || []).map(q => typeof q === 'object' ? q : { question: q, answer: '' }), null, 2);
+    label = 'Questions (array of {question, answer})';
+    jsonTemplate = `[
+  { "question": "What is Python?", "answer": "A programming language." },
+  { "question": "How do you install Python?", "answer": "Download from python.org." }
+]`;
+    // Form for questions: just edit the first question
+    const q = (chapter.questions && chapter.questions[0]) || { question: '', answer: '' };
+    formHtml = `
+      <h2>Edit Question (first item)</h2>
+      <label>Question: <input id="form-question-q" value="${q.question || ''}"></label><br>
+      <label>Answer: <textarea id="form-question-a" rows="2" style="width:100%">${q.answer || ''}</textarea></label><br>
+      <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
+        <button class="admin-btn" id="save-accordion-form-btn">Save</button>
+        <button class="admin-btn" id="cancel-accordion-form-btn">Cancel</button>
+      </div>
+    `;
+  }
+  showModalTabbed({
+    title: `Edit ${label}`,
+    formHtml,
+    jsonTemplate: jsonTemplate,
+    onFormMount: () => {
+      document.getElementById('cancel-accordion-form-btn').onclick = closeModal;
+      document.getElementById('save-accordion-form-btn').onclick = () => {
+        if (type === 'resources') {
+          const label = document.getElementById('form-resource-label').value;
+          const url = document.getElementById('form-resource-url').value;
+          chapter.resources[0] = { label, url };
+        } else if (type === 'questions') {
+          const question = document.getElementById('form-question-q').value;
+          const answer = document.getElementById('form-question-a').value;
+          chapter.questions[0] = { question, answer };
+        }
+        state.editCourse(course.id, { chapters: course.chapters });
+        closeModal();
+        renderCourseWideChaptersView(course, course.chapters, chapter.id);
+      };
+    },
+    onJsonMount: () => {
+      // No-op for now
+    }
+  });
+}
+
+function showAddAccordionItemModal(course, chapter, type) {
+  let label = '';
+  let placeholder = '';
+  let jsonTemplate = '';
+  let formHtml = '';
+  if (type === 'resources') {
+    label = 'Resource (JSON: {"label": "Name", "url": "https://..."})';
+    placeholder = '{ "label": "Resource Name", "url": "https://..." }';
+    jsonTemplate = `{
+  "label": "Resource Name",
+  "url": "https://..."
+}`;
+    formHtml = `
+      <h2>Add Resource</h2>
+      <label>Label: <input id="form-resource-label"></label><br>
+      <label>URL: <input id="form-resource-url"></label><br>
+      <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
+        <button class="admin-btn" id="save-add-accordion-form-btn">Add</button>
+        <button class="admin-btn" id="cancel-add-accordion-form-btn">Cancel</button>
+      </div>
+    `;
+  } else if (type === 'questions') {
+    label = 'Question (JSON: {"question": "...", "answer": "..."})';
+    placeholder = '{ "question": "What is Python?", "answer": "A programming language." }';
+    jsonTemplate = `{
+  "question": "What is Python?",
+  "answer": "A programming language."
+}`;
+    formHtml = `
+      <h2>Add Question</h2>
+      <label>Question: <input id="form-question-q"></label><br>
+      <label>Answer: <textarea id="form-question-a" rows="2" style="width:100%"></textarea></label><br>
+      <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
+        <button class="admin-btn" id="save-add-accordion-form-btn">Add</button>
+        <button class="admin-btn" id="cancel-add-accordion-form-btn">Cancel</button>
+      </div>
+    `;
+  }
+  showModalTabbed({
+    title: 'Add Accordion Item',
+    formHtml,
+    jsonTemplate,
+    onFormMount: () => {
+      document.getElementById('cancel-add-accordion-form-btn').onclick = closeModal;
+      document.getElementById('save-add-accordion-form-btn').onclick = () => {
+        if (type === 'resources') {
+          const label = document.getElementById('form-resource-label').value;
+          const url = document.getElementById('form-resource-url').value;
+          if (!Array.isArray(chapter.resources)) chapter.resources = [];
+          chapter.resources.push({ label, url });
+        } else if (type === 'questions') {
+          const question = document.getElementById('form-question-q').value;
+          const answer = document.getElementById('form-question-a').value;
+          if (!Array.isArray(chapter.questions)) chapter.questions = [];
+          chapter.questions.push({ question, answer });
+        }
+        state.editCourse(course.id, { chapters: course.chapters });
+        closeModal();
+        renderCourseWideChaptersView(course, course.chapters, chapter.id);
+      };
+    },
+    onJsonMount: () => {}
+  });
+}
+
+function showEditAccordionItemModal(course, chapter, type, idx) {
+  let label = '';
+  let value = '';
+  let jsonTemplate = '';
+  let formHtml = '';
+  if (type === 'resources') {
+    label = 'Resource (JSON: {"label": "Name", "url": "https://..."})';
+    value = JSON.stringify(chapter.resources[idx], null, 2);
+    jsonTemplate = `{
+  "label": "Resource Name",
+  "url": "https://..."
+}`;
+    const res = chapter.resources[idx] || { label: '', url: '' };
+    formHtml = `
+      <h2>Edit Resource</h2>
+      <label>Label: <input id="form-resource-label" value="${res.label || ''}"></label><br>
+      <label>URL: <input id="form-resource-url" value="${res.url || ''}"></label><br>
+      <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
+        <button class="admin-btn" id="save-edit-accordion-form-btn">Save</button>
+        <button class="admin-btn" id="cancel-edit-accordion-form-btn">Cancel</button>
+      </div>
+    `;
+  } else if (type === 'questions') {
+    label = 'Question (JSON: {"question": "...", "answer": "..."})';
+    value = JSON.stringify(chapter.questions[idx], null, 2);
+    jsonTemplate = `{
+  "question": "What is Python?",
+  "answer": "A programming language."
+}`;
+    const q = chapter.questions[idx] || { question: '', answer: '' };
+    formHtml = `
+      <h2>Edit Question</h2>
+      <label>Question: <input id="form-question-q" value="${q.question || ''}"></label><br>
+      <label>Answer: <textarea id="form-question-a" rows="2" style="width:100%">${q.answer || ''}</textarea></label><br>
+      <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
+        <button class="admin-btn" id="save-edit-accordion-form-btn">Save</button>
+        <button class="admin-btn" id="cancel-edit-accordion-form-btn">Cancel</button>
+      </div>
+    `;
+  }
+  showModalTabbed({
+    title: 'Edit Accordion Item',
+    formHtml,
+    jsonTemplate,
+    onFormMount: () => {
+      document.getElementById('cancel-edit-accordion-form-btn').onclick = closeModal;
+      document.getElementById('save-edit-accordion-form-btn').onclick = () => {
+        if (type === 'resources') {
+          const label = document.getElementById('form-resource-label').value;
+          const url = document.getElementById('form-resource-url').value;
+          chapter.resources[idx] = { label, url };
+        } else if (type === 'questions') {
+          const question = document.getElementById('form-question-q').value;
+          const answer = document.getElementById('form-question-a').value;
+          chapter.questions[idx] = { question, answer };
+        }
+        state.editCourse(course.id, { chapters: course.chapters });
+        closeModal();
+        renderCourseWideChaptersView(course, course.chapters, chapter.id);
+      };
+    },
+    onJsonMount: () => {}
+  });
 }
 
 function renderChapterView(chapterId, courseId) {
@@ -426,6 +835,40 @@ renderLessonView = function(courseId, chapterId, lessonId, exerciseIdx = 0) {
   const lesson = lessons.find(l => l.id == lessonId) || lessons[0];
   if (lesson && lesson.content) {
     renderMarkdownToHtml(lesson.content, '#lesson-codex-md');
+  }
+  // Add Reset Chapter Progress button
+  const root = document.getElementById('app-root');
+  const profile = state.getSelectedProfile();
+  const courseForReset = state.getCourses().find(c => c.id == courseId);
+  const chapterForReset = courseForReset && courseForReset.chapters.find(ch => ch.id == chapterId);
+  if (root && chapterForReset) {
+    let navRight = root.querySelector('.main-navbar .navbar-right');
+    if (navRight && !navRight.querySelector('#reset-chapter-progress-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'navbar-link danger';
+      btn.id = 'reset-chapter-progress-btn';
+      btn.textContent = 'Reset Chapter Progress';
+      btn.onclick = () => {
+        if (!confirm('Are you sure you want to reset your progress for this chapter? This cannot be undone.')) return;
+        const lessons = Array.isArray(chapterForReset.lessons) ? chapterForReset.lessons : [];
+        const lessonIds = lessons.map(l => l.id);
+        // Remove lessons from completedLessons
+        if (Array.isArray(profile.completedLessons)) {
+          profile.completedLessons = profile.completedLessons.filter(id => !lessonIds.includes(id));
+        }
+        // Remove exercises from exerciseLog
+        if (Array.isArray(profile.exerciseLog)) {
+          profile.exerciseLog = profile.exerciseLog.filter(e => !lessonIds.includes(e.lessonId));
+        }
+        // Remove SRS entries for these lessons/exercises
+        if (Array.isArray(profile.srsQueue)) {
+          profile.srsQueue = profile.srsQueue.filter(e => !lessonIds.includes(e.id));
+        }
+        state.editProfile(profile.id, profile);
+        renderLessonView(courseId, chapterId, lessons[0]?.id, 0);
+      };
+      navRight.insertBefore(btn, navRight.firstChild);
+    }
   }
 };
 
@@ -524,6 +967,7 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
           </div>
           <div class="exercise-actions">
             <button class="check-answer-btn" id="check-answer-btn">Check Answer</button>
+            <button class="show-answer-btn" id="show-answer-btn">Show Answer</button>
             <span class="exercise-feedback" id="exercise-feedback"></span>
           </div>
         </main>
@@ -558,7 +1002,7 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
       const val = root.querySelector('#exercise-code').value;
       correct = val.includes('range') && val.includes('print');
     } else if (exercise.type === 'mcq') {
-      const checked = root.querySelector('input[name=\"mcq\"]:checked');
+      const checked = root.querySelector('input[name="mcq"]:checked');
       correct = checked && Number(checked.value) === exercise.correct;
     } else if (exercise.type === 'fill') {
       const val = root.querySelector('#exercise-fill').value.trim();
@@ -568,10 +1012,48 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
     if (correct) {
       feedback.textContent = '✅ Correct!';
       feedback.style.color = '#3a7a3a';
+      // Mark exercise as completed in profile.exerciseLog (if not already)
+      const profile = state.getSelectedProfile();
+      if (!profile.exerciseLog) profile.exerciseLog = [];
+      const logExists = profile.exerciseLog.some(e => e.lessonId === lesson.id && e.type === exercise.type);
+      if (!logExists) {
+        profile.exerciseLog.push({ lessonId: lesson.id, type: exercise.type, status: 'success', timestamp: Date.now() });
+        state.editProfile(profile.id, profile);
+      }
+      // Auto-add exercise to SRS
+      scheduleSRSItem(profile, lesson.id, 'exercise', 'success');
+      state.editProfile(profile.id, profile);
+      // If last exercise, mark lesson as completed and add to SRS
+      if (exerciseIdx === exercises.length - 1) {
+        if (!profile.completedLessons) profile.completedLessons = [];
+        if (!profile.completedLessons.includes(lesson.id)) {
+          profile.completedLessons.push(lesson.id);
+          state.editProfile(profile.id, profile);
+          // Auto-add lesson to SRS
+          scheduleSRSItem(profile, lesson.id, 'lesson', 'success');
+          state.editProfile(profile.id, profile);
+        }
+      }
     } else {
       feedback.textContent = '❌ Try again.';
       feedback.style.color = '#a44';
     }
+  };
+  // Show answer logic
+  root.querySelector('#show-answer-btn').onclick = () => {
+    let answer = '';
+    if (exercise.type === 'code') {
+      answer = exercise.answer ? `Expected output: ${exercise.answer}` : 'No answer available.';
+    } else if (exercise.type === 'mcq') {
+      answer = exercise.options && typeof exercise.correct === 'number' ? `Correct: ${exercise.options[exercise.correct]}` : 'No answer available.';
+    } else if (exercise.type === 'fill') {
+      answer = exercise.answer ? `Answer: ${exercise.answer}` : 'No answer available.';
+    } else if (exercise.type === 'drag' || exercise.type === 'order') {
+      answer = exercise.items && exercise.order ? `Order: ${exercise.order.map(i => exercise.items[i]).join(', ')}` : 'No answer available.';
+    }
+    const feedback = root.querySelector('#exercise-feedback');
+    feedback.textContent = answer;
+    feedback.style.color = '#bfa46f';
   };
   // Lesson dropdown logic
   const showLessonsBtn = root.querySelector('#show-lessons-btn');
@@ -618,30 +1100,7 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
   // Admin: Edit lesson
   if (admin && root.querySelector('#edit-lesson-btn')) {
     root.querySelector('#edit-lesson-btn').onclick = () => {
-      showModal(`
-        <h2>Edit Lesson</h2>
-        <label>Title: <input id="edit-lesson-title" value="${lesson.title}"></label><br>
-        <label>Content (Markdown):<br><textarea id="edit-lesson-content" rows="8" style="width:100%;font-family:monospace;">${lesson.content || ''}</textarea></label><br>
-        <label>Exercises (JSON):<br><textarea id="edit-lesson-exercises" rows="8" style="width:100%;font-family:monospace;">${JSON.stringify(lesson.exercises || exercises, null, 2)}</textarea></label>
-        <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
-          <button class="admin-btn" id="save-lesson-btn">Save</button>
-          <button class="admin-btn" id="cancel-lesson-btn">Cancel</button>
-        </div>
-      `);
-      document.getElementById('cancel-lesson-btn').onclick = closeModal;
-      document.getElementById('save-lesson-btn').onclick = () => {
-        lesson.title = document.getElementById('edit-lesson-title').value;
-        lesson.content = document.getElementById('edit-lesson-content').value;
-        try {
-          lesson.exercises = JSON.parse(document.getElementById('edit-lesson-exercises').value);
-        } catch (e) {
-          alert('Invalid exercises JSON: ' + e.message);
-          return;
-        }
-        state.editCourse(course.id, { chapters: course.chapters });
-        closeModal();
-        renderLessonView(courseId, chapterId, lesson.id, 0);
-      };
+      showEditLessonModal(courseId, chapterId, lessonId);
     };
   }
   // Fix: Reset Demo Data button handler
@@ -657,6 +1116,16 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
       state.setAdminMode(e.target.checked);
       renderLessonView(courseId, chapterId, lessonId, exerciseIdx);
     };
+  }
+  // After rendering lessonDropdown in renderLessonView:
+  if (admin) {
+    enableDragAndDrop('.lesson-dropdown-list', '.lesson-dropdown-item', (newOrder) => {
+      const newLessons = newOrder.map(id => lessons.find(l => String(l.id) === id));
+      chapter.lessons = newLessons;
+      state.editCourse(course.id, { chapters: course.chapters });
+      localStorage.setItem('arcanum-app-state', JSON.stringify(getSerializableState()));
+      renderLessonView(course.id, chapter.id, newLessons[0]?.id);
+    });
   }
 }
 
@@ -800,16 +1269,18 @@ function showCreateProfileModal() {
   });
 }
 
-function showModalTabbed({title, formHtml, jsonTemplate, onFormMount, onJsonMount, jsonFaq}) {
+function showModalTabbed({title, formHtml, jsonEditHtml, jsonTemplate, onFormMount, onJsonMount, jsonFaq}) {
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal-content modal-lg">
     <div class="modal-tabs">
       <button class="modal-tab-btn active" data-tab="form">Form</button>
-      <button class="modal-tab-btn" data-tab="json">JSON Template</button>
+      ${jsonEditHtml ? '<button class="modal-tab-btn" data-tab="json">JSON</button>' : ''}
+      <button class="modal-tab-btn" data-tab="template">JSON Template</button>
       ${jsonFaq ? '<button class="modal-tab-btn" data-tab="faq">FAQ</button>' : ''}
     </div>
     <div class="modal-tab-content modal-tab-form">${formHtml}</div>
-    <div class="modal-tab-content modal-tab-json" style="display:none;">
+    ${jsonEditHtml ? `<div class="modal-tab-content modal-tab-json" style="display:none;">${jsonEditHtml}</div>` : ''}
+    <div class="modal-tab-content modal-tab-template" style="display:none;">
       <pre class="modal-json-template"><code>${jsonTemplate}</code></pre>
       <button class="admin-btn" id="copy-json-template-btn">Copy JSON</button>
     </div>
@@ -822,7 +1293,8 @@ function showModalTabbed({title, formHtml, jsonTemplate, onFormMount, onJsonMoun
     tabBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     modalRoot.querySelector('.modal-tab-form').style.display = btn.dataset.tab === 'form' ? '' : 'none';
-    modalRoot.querySelector('.modal-tab-json').style.display = btn.dataset.tab === 'json' ? '' : 'none';
+    if (jsonEditHtml) modalRoot.querySelector('.modal-tab-json').style.display = btn.dataset.tab === 'json' ? '' : 'none';
+    modalRoot.querySelector('.modal-tab-template').style.display = btn.dataset.tab === 'template' ? '' : 'none';
     if (jsonFaq) modalRoot.querySelector('.modal-tab-faq').style.display = btn.dataset.tab === 'faq' ? '' : 'none';
   });
   // Copy JSON
@@ -840,7 +1312,7 @@ function showModalTabbed({title, formHtml, jsonTemplate, onFormMount, onJsonMoun
     }
   };
   if (onFormMount) onFormMount();
-  if (onJsonMount) onJsonMount();
+  if (onJsonMount && jsonEditHtml) onJsonMount();
 }
 
 function showBulkAddModal(type) {
@@ -857,6 +1329,15 @@ function showBulkAddModal(type) {
         "title": "Introduction to Python",
         "desc": "...",
         "icon": "📖",
+        "resources": [
+          { "label": "Official Python Docs", "url": "https://docs.python.org/3/" },
+          { "label": "Python Tutorial (W3Schools)", "url": "https://www.w3schools.com/python/" }
+        ],
+        "questions": [
+          "What is Python used for?",
+          "How do you install Python?",
+          "What is a variable?"
+        ],
         "lessons": [
           {
             "id": 1001,
@@ -944,6 +1425,15 @@ function showBulkAddModal(type) {
           "title": "Introduction to Python",
           "desc": "...",
           "icon": "📖",
+          "resources": [
+            { "label": "Official Python Docs", "url": "https://docs.python.org/3/" },
+            { "label": "Python Tutorial (W3Schools)", "url": "https://www.w3schools.com/python/" }
+          ],
+          "questions": [
+            "What is Python used for?",
+            "How do you install Python?",
+            "What is a variable?"
+          ],
           "lessons": [
             {
               "id": 1001,
@@ -1129,25 +1619,36 @@ function showEditProfileModal(profile) {
   "name": "${profile.name}",
   "avatar": "${profile.avatar}"
 }`;
+  let formData = { name: profile.name, avatar: profile.avatar };
+  let jsonData = JSON.stringify(formData, null, 2);
+  const formHtml = `
+    <h2>Edit Profile</h2>
+    <label>Name: <input id="edit-profile-name" value="${formData.name}"></label><br>
+    <label>Avatar URL: <input id="edit-profile-avatar" value="${formData.avatar}"></label><br>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-profile-form-btn">Save</button>
+      <button class="admin-btn" id="delete-profile-btn">Delete</button>
+      <button class="admin-btn" id="cancel-profile-btn">Cancel</button>
+    </div>
+  `;
+  const jsonEditHtml = `
+    <h2>Edit Profile (JSON)</h2>
+    <textarea id="edit-profile-json" rows="8" style="width:100%;font-family:monospace;">${jsonData}</textarea>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-profile-json-btn">Save</button>
+      <button class="admin-btn" id="cancel-profile-json-btn">Cancel</button>
+    </div>
+  `;
   showModalTabbed({
     title: 'Edit Profile',
-    formHtml: `
-      <h2>Edit Profile</h2>
-      <label>Name: <input id="edit-profile-name" value="${profile.name}"></label><br>
-      <label>Avatar URL: <input id="edit-profile-avatar" value="${profile.avatar}"></label><br>
-      <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
-        <button class="admin-btn" id="save-profile-btn">Save</button>
-        <button class="admin-btn" id="delete-profile-btn">Delete</button>
-        <button class="admin-btn" id="cancel-profile-btn">Cancel</button>
-      </div>
-    `,
+    formHtml,
+    jsonEditHtml,
     jsonTemplate,
     onFormMount: () => {
-      document.getElementById('save-profile-btn').onclick = () => {
-        state.editProfile(profile.id, {
-          name: document.getElementById('edit-profile-name').value,
-          avatar: document.getElementById('edit-profile-avatar').value
-        });
+      document.getElementById('save-profile-form-btn').onclick = () => {
+        const name = document.getElementById('edit-profile-name').value;
+        const avatar = document.getElementById('edit-profile-avatar').value;
+        state.editProfile(profile.id, { name, avatar });
         closeModal();
         renderDashboardView();
       };
@@ -1159,6 +1660,19 @@ function showEditProfileModal(profile) {
         }
       };
       document.getElementById('cancel-profile-btn').onclick = closeModal;
+    },
+    onJsonMount: () => {
+      document.getElementById('save-profile-json-btn').onclick = () => {
+        try {
+          const data = JSON.parse(document.getElementById('edit-profile-json').value);
+          state.editProfile(profile.id, data);
+          closeModal();
+          renderDashboardView();
+        } catch (e) {
+          alert('Invalid JSON: ' + e.message);
+        }
+      };
+      document.getElementById('cancel-profile-json-btn').onclick = closeModal;
     }
   });
 }
@@ -1169,22 +1683,32 @@ function showEditCourseModal(course) {
   "desc": "${course.desc}",
   "icon": "${course.icon}"
 }`;
+  const formHtml = `
+    <h2>Edit Course</h2>
+    <label>Title: <input id="edit-course-title" value="${course.title}"></label><br>
+    <label>Description: <input id="edit-course-desc" value="${course.desc}"></label><br>
+    <label>Icon: <input id="edit-course-icon" value="${course.icon}"></label><br>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-course-form-btn">Save</button>
+      <button class="admin-btn" id="delete-course-btn">Delete</button>
+      <button class="admin-btn" id="cancel-course-btn">Cancel</button>
+    </div>
+  `;
+  const jsonEditHtml = `
+    <h2>Edit Course (JSON)</h2>
+    <textarea id="edit-course-json" rows="8" style="width:100%;font-family:monospace;">${JSON.stringify({ title: course.title, desc: course.desc, icon: course.icon }, null, 2)}</textarea>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-course-json-btn">Save</button>
+      <button class="admin-btn" id="cancel-course-json-btn">Cancel</button>
+    </div>
+  `;
   showModalTabbed({
     title: 'Edit Course',
-    formHtml: `
-      <h2>Edit Course</h2>
-      <label>Title: <input id="edit-course-title" value="${course.title}"></label><br>
-      <label>Description: <input id="edit-course-desc" value="${course.desc}"></label><br>
-      <label>Icon: <input id="edit-course-icon" value="${course.icon}"></label><br>
-      <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
-        <button class="admin-btn" id="save-course-btn">Save</button>
-        <button class="admin-btn" id="delete-course-btn">Delete</button>
-        <button class="admin-btn" id="cancel-course-btn">Cancel</button>
-      </div>
-    `,
+    formHtml,
+    jsonEditHtml,
     jsonTemplate,
     onFormMount: () => {
-      document.getElementById('save-course-btn').onclick = () => {
+      document.getElementById('save-course-form-btn').onclick = () => {
         state.editCourse(course.id, {
           title: document.getElementById('edit-course-title').value,
           desc: document.getElementById('edit-course-desc').value,
@@ -1201,6 +1725,373 @@ function showEditCourseModal(course) {
         }
       };
       document.getElementById('cancel-course-btn').onclick = closeModal;
+    },
+    onJsonMount: () => {
+      document.getElementById('save-course-json-btn').onclick = () => {
+        try {
+          const data = JSON.parse(document.getElementById('edit-course-json').value);
+          state.editCourse(course.id, data);
+          closeModal();
+          renderDashboardView();
+        } catch (e) {
+          alert('Invalid JSON: ' + e.message);
+        }
+      };
+      document.getElementById('cancel-course-json-btn').onclick = closeModal;
+    }
+  });
+}
+
+function showEditChapterModal(courseId, chapter) {
+  const jsonTemplate = `{
+  "title": "${chapter.title}",
+  "desc": "${chapter.desc}",
+  "icon": "${chapter.icon}"
+}`;
+  const formHtml = `
+    <h2>Edit Chapter</h2>
+    <label>Title: <input id="edit-chapter-title" value="${chapter.title}"></label><br>
+    <label>Description: <input id="edit-chapter-desc" value="${chapter.desc}"></label><br>
+    <label>Icon: <input id="edit-chapter-icon" value="${chapter.icon}"></label><br>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-chapter-form-btn">Save</button>
+      <button class="admin-btn" id="delete-chapter-btn">Delete</button>
+      <button class="admin-btn" id="cancel-chapter-btn">Cancel</button>
+    </div>
+  `;
+  const jsonEditHtml = `
+    <h2>Edit Chapter (JSON)</h2>
+    <textarea id="edit-chapter-json" rows="8" style="width:100%;font-family:monospace;">${JSON.stringify(chapter, null, 2)}</textarea>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-chapter-json-btn">Save</button>
+      <button class="admin-btn" id="cancel-chapter-json-btn">Cancel</button>
+    </div>
+  `;
+  showModalTabbed({
+    title: 'Edit Chapter',
+    formHtml,
+    jsonEditHtml,
+    jsonTemplate,
+    onFormMount: () => {
+      document.getElementById('save-chapter-form-btn').onclick = () => {
+        chapter.title = document.getElementById('edit-chapter-title').value;
+        chapter.desc = document.getElementById('edit-chapter-desc').value;
+        chapter.icon = document.getElementById('edit-chapter-icon').value;
+        state.editCourse(courseId, { chapters: state.getCourses().find(c => c.id == courseId).chapters });
+        closeModal();
+        renderCourseWideChaptersView(state.getCourses().find(c => c.id == courseId), state.getCourses().find(c => c.id == courseId).chapters, chapter.id);
+      };
+      document.getElementById('delete-chapter-btn').onclick = () => {
+        const course = state.getCourses().find(c => c.id == courseId);
+        if (confirm('Delete this chapter?')) {
+          const idx = course.chapters.findIndex(ch => ch.id === chapter.id);
+          if (idx !== -1) {
+            course.chapters.splice(idx, 1);
+            state.editCourse(courseId, { chapters: course.chapters });
+            closeModal();
+            renderCourseWideChaptersView(course, course.chapters, course.chapters[0]?.id);
+          }
+        }
+      };
+      document.getElementById('cancel-chapter-btn').onclick = closeModal;
+    },
+    onJsonMount: () => {
+      document.getElementById('save-chapter-json-btn').onclick = () => {
+        try {
+          const data = JSON.parse(document.getElementById('edit-chapter-json').value);
+          Object.assign(chapter, data);
+          state.editCourse(courseId, { chapters: state.getCourses().find(c => c.id == courseId).chapters });
+          closeModal();
+          renderCourseWideChaptersView(state.getCourses().find(c => c.id == courseId), state.getCourses().find(c => c.id == courseId).chapters, chapter.id);
+        } catch (e) {
+          alert('Invalid JSON: ' + e.message);
+        }
+      };
+      document.getElementById('cancel-chapter-json-btn').onclick = closeModal;
+    }
+  });
+}
+
+function showEditLessonModal(courseId, chapterId, lessonId) {
+  const course = state.getCourses().find(c => c.id == courseId);
+  if (!course) return renderDashboardView();
+  const chapter = course.chapters.find(ch => ch.id == chapterId);
+  if (!chapter) return renderCourseWideChaptersView(course, course.chapters, chapterId);
+  const lesson = chapter.lessons.find(l => l.id == lessonId);
+  if (!lesson) return renderCourseWideChaptersView(course, course.chapters, chapterId);
+  const jsonTemplate = `{
+  "id": 1001,
+  "title": "Sample Lesson",
+  "content": "# Lesson Content\nMarkdown supported.",
+  "exercises": [
+    {
+      "type": "mcq",
+      "prompt": "What is 2+2?",
+      "options": ["3", "4", "5"],
+      "answer": 1
+    },
+    {
+      "type": "fill",
+      "prompt": "Fill in the blank: The sky is ___.",
+      "answer": "blue"
+    },
+    {
+      "type": "code",
+      "prompt": "Write a Hello World program.",
+      "starter": "print('')",
+      "solution": "print('Hello, World!')"
+    },
+    {
+      "type": "drag",
+      "prompt": "Order the steps to print in Python.",
+      "items": ["Type print", "Open parenthesis", "Add string", "Close parenthesis"],
+      "order": [0,1,2,3]
+    },
+    {
+      "type": "order",
+      "prompt": "Arrange the numbers in ascending order.",
+      "items": [3,1,2],
+      "order": [1,2,0]
+    }
+  ]
+}
+
+// Fields:
+// id: number (unique lesson ID)
+// title: string (lesson name)
+// content: string (Markdown/HTML)
+// exercises: array of exercises
+//
+// Exercise types:
+// - mcq: { type, prompt, options, answer (index) }
+// - fill: { type, prompt, answer }
+// - code: { type, prompt, starter, solution }
+// - drag/order: { type, prompt, items, order (array of indices) }
+`;
+  // --- Dynamic Exercise Form Builder ---
+  function renderExerciseForm(ex, idx) {
+    const type = ex.type || 'mcq';
+    return `
+      <div class="exercise-form-card" data-ex-idx="${idx}" style="border:1px solid #bfa46f;padding:1rem;margin-bottom:1.2rem;background:var(--background-secondary);border-radius:8px;">
+        <div style="display:flex;align-items:center;gap:1rem;">
+          <label>Type:
+            <select class="exercise-type" data-idx="${idx}" title="Choose the exercise type">
+              <option value="mcq" ${type==='mcq'?'selected':''}>MCQ</option>
+              <option value="fill" ${type==='fill'?'selected':''}>Fill</option>
+              <option value="code" ${type==='code'?'selected':''}>Code</option>
+              <option value="drag" ${type==='drag'?'selected':''}>Drag</option>
+              <option value="order" ${type==='order'?'selected':''}>Order</option>
+            </select>
+          </label>
+          <button class="admin-btn remove-ex-btn" data-idx="${idx}" style="margin-left:auto;">Remove</button>
+        </div>
+        <label>Prompt:<br><textarea class="exercise-prompt" data-idx="${idx}" rows="2" style="width:100%;font-family:monospace;" placeholder="e.g. What is 2+2?">${ex.prompt||''}</textarea></label><br>
+        ${type==='mcq' ? `
+          <label>Options (comma separated):<br><input class="exercise-options" data-idx="${idx}" value="${(ex.options||[]).join(', ')}" style="width:100%" placeholder="e.g. Red, Blue, Green"></label><br>
+          <label>Answer (index): <input class="exercise-answer" data-idx="${idx}" type="number" min="0" value="${typeof ex.answer==='number'?ex.answer:''}" placeholder="e.g. 1"></label><br>
+        ` : ''}
+        ${type==='fill' ? `
+          <label>Answer: <input class="exercise-answer" data-idx="${idx}" value="${ex.answer||''}" style="width:100%" placeholder="e.g. すみません"></label><br>
+        ` : ''}
+        ${type==='code' ? `
+          <label>Starter Code:<br><textarea class="exercise-starter" data-idx="${idx}" rows="2" style="width:100%;font-family:monospace;" placeholder="e.g. print('')">${ex.starter||''}</textarea></label><br>
+          <label>Solution:<br><textarea class="exercise-solution" data-idx="${idx}" rows="2" style="width:100%;font-family:monospace;" placeholder="e.g. print('Hello, World!')">${ex.solution||''}</textarea></label><br>
+        ` : ''}
+        ${(type==='drag'||type==='order') ? `
+          <label>Items (comma separated):<br><input class="exercise-items" data-idx="${idx}" value="${(ex.items||[]).join(', ')}" style="width:100%" placeholder="e.g. Step 1, Step 2, Step 3"></label><br>
+          <label>Order (comma separated indices):<br><input class="exercise-order" data-idx="${idx}" value="${(ex.order||[]).join(', ')}" style="width:100%" placeholder="e.g. 2, 0, 1"></label><br>
+        ` : ''}
+      </div>
+    `;
+  }
+  // --- END Dynamic Exercise Form Builder ---
+
+  const exercisesArr = Array.isArray(lesson.exercises) ? lesson.exercises.map(e => ({...e})) : [];
+  let exercisesHtml = `<div id="exercises-list">${exercisesArr.map(renderExerciseForm).join('')}</div>
+    <button class="admin-btn" id="add-exercise-btn" style="margin-bottom:1.2rem;">+ Add Exercise</button>`;
+
+  const formHtml = `
+    <h2>Edit Lesson</h2>
+    <label>Title: <input id="edit-lesson-title" value="${lesson.title}"></label><br>
+    <label>Content (Markdown):<br><textarea id="edit-lesson-content" rows="8" style="width:100%;font-family:monospace;">${lesson.content || ''}</textarea></label><br>
+    <div style="margin:1.2rem 0 0.5rem 0;font-weight:bold;">Exercises:</div>
+    <div id="lesson-exercise-forms">${exercisesHtml}</div>
+    <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-lesson-btn">Save</button>
+      <button class="admin-btn" id="cancel-lesson-btn">Cancel</button>
+    </div>
+  `;
+  const jsonEditHtml = `
+    <h2>Edit Lesson (JSON)</h2>
+    <textarea id="edit-lesson-json" rows="12" style="width:100%;font-family:monospace;">${JSON.stringify(lesson, null, 2)}</textarea>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-lesson-json-btn">Save</button>
+      <button class="admin-btn" id="cancel-lesson-json-btn">Cancel</button>
+    </div>
+  `;
+  showModalTabbed({
+    title: 'Edit Lesson',
+    formHtml,
+    jsonEditHtml,
+    jsonTemplate,
+    onFormMount: () => {
+      // --- Dynamic Exercise Form Logic ---
+      let exercises = Array.isArray(lesson.exercises) ? lesson.exercises.map(e => ({...e})) : [];
+      const renderAllExercises = () => {
+        document.getElementById('lesson-exercise-forms').innerHTML = `<div id="exercises-list">${exercises.map(renderExerciseForm).join('')}</div>
+          <button class="admin-btn" id="add-exercise-btn" style="margin-bottom:1.2rem;">+ Add Exercise</button>`;
+        attachExerciseHandlers();
+      };
+      function attachExerciseHandlers() {
+        // Remove
+        document.querySelectorAll('.remove-ex-btn').forEach(btn => {
+          btn.onclick = () => {
+            const idx = Number(btn.getAttribute('data-idx'));
+            exercises.splice(idx, 1);
+            renderAllExercises();
+          };
+        });
+        // Type change
+        document.querySelectorAll('.exercise-type').forEach(sel => {
+          sel.onchange = (e) => {
+            const idx = Number(sel.getAttribute('data-idx'));
+            exercises[idx].type = sel.value;
+            // Reset fields for new type
+            if (sel.value === 'mcq') { exercises[idx].options = ['','']; exercises[idx].answer = 0; }
+            if (sel.value === 'fill') { exercises[idx].answer = ''; }
+            if (sel.value === 'code') { exercises[idx].starter = ''; exercises[idx].solution = ''; }
+            if (sel.value === 'drag' || sel.value === 'order') { exercises[idx].items = ['','']; exercises[idx].order = [0,1]; }
+            renderAllExercises();
+          };
+        });
+      }
+      // Add Exercise
+      document.getElementById('add-exercise-btn').onclick = () => {
+        exercises.push({ type: 'mcq', prompt: '', options: ['',''], answer: 0 });
+        renderAllExercises();
+      };
+      attachExerciseHandlers();
+      // Save
+      document.getElementById('save-lesson-btn').onclick = () => {
+        lesson.title = document.getElementById('edit-lesson-title').value;
+        lesson.content = document.getElementById('edit-lesson-content').value;
+        // Gather exercises
+        const newExercises = [];
+        document.querySelectorAll('.exercise-form-card').forEach((card, idx) => {
+          const type = card.querySelector('.exercise-type').value;
+          const prompt = card.querySelector('.exercise-prompt').value;
+          let ex = { type, prompt };
+          if (type === 'mcq') {
+            ex.options = card.querySelector('.exercise-options').value.split(',').map(s=>s.trim());
+            ex.answer = Number(card.querySelector('.exercise-answer').value);
+          } else if (type === 'fill') {
+            ex.answer = card.querySelector('.exercise-answer').value;
+          } else if (type === 'code') {
+            ex.starter = card.querySelector('.exercise-starter').value;
+            ex.solution = card.querySelector('.exercise-solution').value;
+          } else if (type === 'drag' || type === 'order') {
+            ex.items = card.querySelector('.exercise-items').value.split(',').map(s=>s.trim());
+            ex.order = card.querySelector('.exercise-order').value.split(',').map(s=>Number(s.trim()));
+          }
+          newExercises.push(ex);
+        });
+        lesson.exercises = newExercises;
+        state.editCourse(course.id, { chapters: course.chapters });
+        closeModal();
+        renderLessonView(courseId, chapterId, lesson.id, 0);
+      };
+      document.getElementById('cancel-lesson-btn').onclick = closeModal;
+      // --- END Dynamic Exercise Form Logic ---
+    },
+    onJsonMount: () => {
+      document.getElementById('save-lesson-json-btn').onclick = () => {
+        try {
+          const data = JSON.parse(document.getElementById('edit-lesson-json').value);
+          Object.assign(lesson, data);
+          state.editCourse(course.id, { chapters: course.chapters });
+          closeModal();
+          renderLessonView(courseId, chapterId, lesson.id, 0);
+        } catch (e) {
+          alert('Invalid JSON: ' + e.message);
+        }
+      };
+      document.getElementById('cancel-lesson-json-btn').onclick = closeModal;
+    }
+  });
+}
+
+function showEditExerciseModal(courseId, chapterId, lessonId, exerciseId) {
+  const course = state.getCourses().find(c => c.id == courseId);
+  if (!course) return renderDashboardView();
+  const chapter = course.chapters.find(ch => ch.id == chapterId);
+  if (!chapter) return renderCourseWideChaptersView(course, course.chapters, chapterId);
+  const lesson = chapter.lessons.find(l => l.id == lessonId);
+  if (!lesson) return renderCourseWideChaptersView(course, course.chapters, chapterId);
+  const exercise = lesson.exercises.find(e => e.id == exerciseId);
+  if (!exercise) return renderCourseWideChaptersView(course, course.chapters, chapterId);
+  const jsonTemplate = `{
+  "type": "${exercise.type}",
+  "prompt": "${exercise.prompt}",
+  "starter": "${exercise.starter}",
+  "solution": "${exercise.solution}",
+  "options": ${JSON.stringify(exercise.options || [])}
+}`;
+  const formHtml = `
+    <h2>Edit Exercise</h2>
+    <label>Type: <input id="edit-exercise-type" value="${exercise.type}"></label><br>
+    <label>Prompt: <textarea id="edit-exercise-prompt" rows="4" style="width:100%;font-family:monospace;">${exercise.prompt}</textarea></label><br>
+    <label>Starter Code: <textarea id="edit-exercise-starter" rows="4" style="width:100%;font-family:monospace;">${exercise.starter}</textarea></label><br>
+    <label>Solution: <textarea id="edit-exercise-solution" rows="4" style="width:100%;font-family:monospace;">${exercise.solution}</textarea></label><br>
+    <label>Options (JSON):<br><textarea id="edit-exercise-options" rows="4" style="width:100%;font-family:monospace;">${JSON.stringify(exercise.options || [])}</textarea></label>
+    <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-exercise-btn">Save</button>
+      <button class="admin-btn" id="cancel-exercise-btn">Cancel</button>
+    </div>
+  `;
+  const jsonEditHtml = `
+    <h2>Edit Exercise (JSON)</h2>
+    <textarea id="edit-exercise-json" rows="8" style="width:100%;font-family:monospace;">${JSON.stringify(exercise, null, 2)}</textarea>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-exercise-json-btn">Save</button>
+      <button class="admin-btn" id="cancel-exercise-json-btn">Cancel</button>
+    </div>
+  `;
+  showModalTabbed({
+    title: 'Edit Exercise',
+    formHtml,
+    jsonEditHtml,
+    jsonTemplate,
+    onFormMount: () => {
+      document.getElementById('save-exercise-btn').onclick = () => {
+        exercise.type = document.getElementById('edit-exercise-type').value;
+        exercise.prompt = document.getElementById('edit-exercise-prompt').value;
+        exercise.starter = document.getElementById('edit-exercise-starter').value;
+        exercise.solution = document.getElementById('edit-exercise-solution').value;
+        try {
+          exercise.options = JSON.parse(document.getElementById('edit-exercise-options').value);
+        } catch (e) {
+          alert('Invalid options JSON: ' + e.message);
+          return;
+        }
+        state.editCourse(course.id, { chapters: course.chapters });
+        closeModal();
+        renderLessonView(courseId, chapterId, lessonId, 0);
+      };
+      document.getElementById('cancel-exercise-btn').onclick = closeModal;
+    },
+    onJsonMount: () => {
+      document.getElementById('save-exercise-json-btn').onclick = () => {
+        try {
+          const data = JSON.parse(document.getElementById('edit-exercise-json').value);
+          Object.assign(exercise, data);
+          state.editCourse(course.id, { chapters: course.chapters });
+          closeModal();
+          renderLessonView(courseId, chapterId, lessonId, 0);
+        } catch (e) {
+          alert('Invalid JSON: ' + e.message);
+        }
+      };
+      document.getElementById('cancel-exercise-json-btn').onclick = closeModal;
     }
   });
 }
@@ -1238,6 +2129,7 @@ function renderProfileScreen() {
       </div>
       <div class="navbar-right">
         <button class="navbar-link" id="back-dashboard">Back to Dashboard</button>
+        <button class="navbar-link danger" id="reset-all-progress-btn">Reset All Progress</button>
         ${renderAdminSlider()}
       </div>
     </nav>
@@ -1343,6 +2235,19 @@ function renderProfileScreen() {
     state.setAdminMode(e.target.checked);
     renderProfileScreen();
   };
+  // Reset all progress button
+  const resetAllBtn = root.querySelector('#reset-all-progress-btn');
+  if (resetAllBtn) {
+    resetAllBtn.onclick = () => {
+      if (!confirm('Are you sure you want to reset ALL your progress? This cannot be undone.')) return;
+      // Remove all completedLessons, exerciseLog, and SRS entries for this profile
+      profile.completedLessons = [];
+      profile.exerciseLog = [];
+      profile.srsQueue = [];
+      state.editProfile(profile.id, profile);
+      renderProfileScreen();
+    };
+  }
 }
 
 function renderProgressScreen() {
@@ -1645,52 +2550,6 @@ renderProfileScreen = function() {
   if (nav) addGlobalImportExportButtons(nav);
 };
 
-// Patch showModalTabbed to support FAQ tab if jsonFaq is provided
-const origShowModalTabbed = showModalTabbed;
-showModalTabbed = function(opts) {
-  const { title, formHtml, jsonTemplate, onFormMount, onJsonMount, jsonFaq } = opts;
-  const modalRoot = document.getElementById('modal-root');
-  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal-content modal-lg">
-    <div class="modal-tabs">
-      <button class="modal-tab-btn active" data-tab="form">Form</button>
-      <button class="modal-tab-btn" data-tab="json">JSON Template</button>
-      ${jsonFaq ? '<button class="modal-tab-btn" data-tab="faq">FAQ</button>' : ''}
-    </div>
-    <div class="modal-tab-content modal-tab-form">${formHtml}</div>
-    <div class="modal-tab-content modal-tab-json" style="display:none;">
-      <pre class="modal-json-template"><code>${jsonTemplate}</code></pre>
-      <button class="admin-btn" id="copy-json-template-btn">Copy JSON</button>
-    </div>
-    ${jsonFaq ? `<div class="modal-tab-content modal-tab-faq" style="display:none;">${jsonFaq}</div>` : ''}
-  </div></div>`;
-  modalRoot.style.pointerEvents = 'auto';
-  // Tab switching
-  const tabBtns = modalRoot.querySelectorAll('.modal-tab-btn');
-  tabBtns.forEach(btn => btn.onclick = () => {
-    tabBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    modalRoot.querySelector('.modal-tab-form').style.display = btn.dataset.tab === 'form' ? '' : 'none';
-    modalRoot.querySelector('.modal-tab-json').style.display = btn.dataset.tab === 'json' ? '' : 'none';
-    if (jsonFaq) modalRoot.querySelector('.modal-tab-faq').style.display = btn.dataset.tab === 'faq' ? '' : 'none';
-  });
-  // Copy JSON
-  modalRoot.querySelector('#copy-json-template-btn').onclick = () => {
-    const code = modalRoot.querySelector('.modal-json-template code').innerText;
-    navigator.clipboard.writeText(code);
-    modalRoot.querySelector('#copy-json-template-btn').textContent = 'Copied!';
-    setTimeout(()=>{modalRoot.querySelector('#copy-json-template-btn').textContent = 'Copy JSON';}, 1200);
-  };
-  // Overlay click to close
-  modalRoot.onclick = (e) => {
-    if (e.target.classList.contains('modal-overlay')) {
-      modalRoot.innerHTML = '';
-      modalRoot.style.pointerEvents = 'none';
-    }
-  };
-  if (onFormMount) onFormMount();
-  if (onJsonMount) onJsonMount();
-};
-
 // --- Add/Edit/Bulk JSON for Chapters ---
 function showBulkAddChaptersModal(courseId) {
   const jsonTemplate = `[
@@ -1699,10 +2558,32 @@ function showBulkAddChaptersModal(courseId) {
     "title": "New Chapter",
     "desc": "Chapter description...",
     "icon": "📖",
-    "lessons": []
+    "resources": [
+      { "label": "Official Python Docs", "url": "https://docs.python.org/3/" },
+      { "label": "Python Tutorial (W3Schools)", "url": "https://www.w3schools.com/python/" }
+    ],
+    "questions": [
+      "What is Python used for?",
+      "How do you install Python?",
+      "What is a variable?"
+    ],
+    "lessons": [
+      {
+        "id": 1001,
+        "title": "What is Python?",
+        "content": "Markdown or HTML content...",
+        "exercises": [
+          { "type": "code", "prompt": "Write a Hello World program.", "starter": "print('')", "solution": "print('Hello, World!')" },
+          { "type": "mcq", "prompt": "What is Python?", "options": ["A snake", "A programming language", "A car"], "answer": 1 },
+          { "type": "fill", "prompt": "Python is a ____ language.", "answer": "programming" },
+          { "type": "drag", "prompt": "Order the steps to print in Python.", "items": ["Type print", "Open parenthesis", "Add string", "Close parenthesis"], "order": [0,1,2,3] },
+          { "type": "order", "prompt": "Arrange the numbers in ascending order.", "items": [3,1,2], "order": [1,2,0] }
+        ]
+      }
+    ]
   }
 ]`;
-  const faqHtml = `<b>Chapters FAQ</b><ul><li><b>id</b>: Unique number</li><li><b>title</b>: Chapter name</li><li><b>desc</b>: Description</li><li><b>icon</b>: Emoji/icon</li><li><b>lessons</b>: Array of lessons</li></ul>`;
+  const faqHtml = `<b>Chapters FAQ</b><ul><li><b>id</b>: Unique number</li><li><b>title</b>: Chapter name</li><li><b>desc</b>: Description</li><li><b>icon</b>: Emoji/icon</li><li><b>resources</b>: Array of resources</li><li><b>questions</b>: Array of questions</li><li><b>lessons</b>: Array of lessons</li></ul>`;
   showModalTabbed({
     title: 'Bulk Add Chapters (JSON)',
     formHtml: `<h2>Bulk Add Chapters (JSON)</h2><textarea id="bulk-chapters-json" rows="10"></textarea><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="bulk-add-chapters-btn">Add</button><button class="admin-btn" id="bulk-cancel-chapters-btn">Cancel</button></div>`,
@@ -2001,5 +2882,138 @@ function getSerializableState() {
     selectedProfileId: state.getSelectedProfile() ? state.getSelectedProfile().id : 1,
     adminMode: state.isAdminMode(),
     appSettings: state.appSettings || {}
+  };
+}
+
+function renderDailyReviewScreen() {
+  const root = document.getElementById('app-root');
+  const profile = state.getSelectedProfile();
+  ensureSRSQueue(profile);
+  const dueSRS = getDueSRSItems(profile);
+  const courses = state.getCourses();
+  root.innerHTML = `
+    <nav class="main-navbar">
+      <div class="navbar-left">
+        <span class="navbar-logo">Arcanum</span>
+      </div>
+      <div class="navbar-center">
+        <span class="navbar-title">Daily Review</span>
+      </div>
+      <div class="navbar-right">
+        <button class="navbar-link" id="back-dashboard">Back to Dashboard</button>
+        ${renderAdminSlider()}
+      </div>
+    </nav>
+    <section class="daily-review-view">
+      <h2>Items Due for Review: ${dueSRS.length}</h2>
+      <div class="daily-review-list">
+        ${dueSRS.length === 0 ? '<div class="no-due-items">All caught up! 🎉</div>' : dueSRS.map(item => {
+          let label = '';
+          if (item.type === 'lesson') {
+            // Find lesson title
+            let lesson = null;
+            for (const course of courses) {
+              for (const chapter of (course.chapters || [])) {
+                lesson = (chapter.lessons || []).find(l => l.id === item.id);
+                if (lesson) break;
+              }
+              if (lesson) break;
+            }
+            label = lesson ? `Lesson: <b>${lesson.title}</b>` : `Lesson #${item.id}`;
+          } else if (item.type === 'exercise') {
+            label = `Exercise #${item.id}`;
+          }
+          return `<div class="daily-review-item" data-id="${item.id}" data-type="${item.type}">
+            <span>${label}</span>
+            <button class="review-btn" data-id="${item.id}" data-type="${item.type}">Review</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </section>
+  `;
+  root.querySelector('#back-dashboard').onclick = renderDashboardView;
+  // Wire up review buttons
+  root.querySelectorAll('.review-btn').forEach(btn => {
+    btn.onclick = () => {
+      const id = Number(btn.getAttribute('data-id'));
+      const type = btn.getAttribute('data-type');
+      showReviewModal(id, type);
+    };
+  });
+}
+
+function showReviewModal(id, type) {
+  const profile = state.getSelectedProfile();
+  const courses = state.getCourses();
+  let lesson = null;
+  let exercise = null;
+  if (type === 'lesson') {
+    for (const course of courses) {
+      for (const chapter of (course.chapters || [])) {
+        lesson = (chapter.lessons || []).find(l => l.id === id);
+        if (lesson) break;
+      }
+      if (lesson) break;
+    }
+  }
+  // For now, only support lesson review (show summary, ask if remembered)
+  showModal(`
+    <div class="review-modal">
+      <h2>Review: ${type === 'lesson' && lesson ? lesson.title : type + ' #' + id}</h2>
+      <div class="review-content">
+        ${type === 'lesson' && lesson ? `<div>${lesson.content.slice(0, 300)}...</div>` : ''}
+      </div>
+      <div class="review-actions">
+        <button class="review-success-btn">Remembered</button>
+        <button class="review-fail-btn">Forgot</button>
+      </div>
+    </div>
+  `, () => renderDailyReviewScreen());
+  document.querySelector('.review-success-btn').onclick = () => {
+    scheduleSRSItem(profile, id, type, 'success');
+    state.editProfile(profile.id, profile); // persist
+    closeModal();
+    renderDailyReviewScreen();
+  };
+  document.querySelector('.review-fail-btn').onclick = () => {
+    scheduleSRSItem(profile, id, type, 'fail');
+    state.editProfile(profile.id, profile); // persist
+    closeModal();
+    renderDailyReviewScreen();
+  };
+}
+
+function showImportStateModal() {
+  showModal(`
+    <h2>Import App State</h2>
+    <p>Paste your JSON below or upload a .json file:</p>
+    <textarea id="import-state-json" rows="12" style="width:100%;font-family:monospace;"></textarea>
+    <input type="file" id="import-state-file" accept="application/json" style="margin-top:1rem;">
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="import-state-btn">Import</button>
+      <button class="admin-btn" id="cancel-import-state-btn">Cancel</button>
+    </div>
+  `);
+  document.getElementById('cancel-import-state-btn').onclick = closeModal;
+  document.getElementById('import-state-btn').onclick = () => {
+    try {
+      const raw = document.getElementById('import-state-json').value;
+      if (!raw.trim()) return alert('Paste JSON or upload a file.');
+      const data = JSON.parse(raw);
+      localStorage.setItem('arcanum-app-state', JSON.stringify(data));
+      closeModal();
+      location.reload();
+    } catch (e) {
+      alert('Invalid JSON: ' + e.message);
+    }
+  };
+  document.getElementById('import-state-file').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      document.getElementById('import-state-json').value = evt.target.result;
+    };
+    reader.readAsText(file);
   };
 }

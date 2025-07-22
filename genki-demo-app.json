@@ -2,18 +2,24 @@
   "profiles": [
     {
       "id": 1,
-      "name": "Genki Student",
+      "name": "Fabian",
       "avatar": "https://ui-avatars.com/api/?name=Genki+Student&background=6a5d3b&color=fff&rounded=true",
       "level": 1,
       "xp": 0,
       "xpToNext": 100,
       "streak": 0,
-      "achievements": [],
-      "completedLessons": [],
-      "completedChapters": [],
+      "achievements": [1],
+      "completedLessons": [1001, 1002],
+      "completedChapters": [101],
       "completedCourses": [],
-      "exerciseLog": [],
-      "settings": { "theme": "light" }
+      "exerciseLog": [
+        {"lessonId": 1001, "type": "mcq", "status": "success", "timestamp": 1710000000001},
+        {"lessonId": 1002, "type": "fill", "status": "fail", "timestamp": 1710000000002}
+      ],
+      "settings": { "theme": "light" },
+      "srsQueue": [
+        {"id": 1001, "type": "lesson", "lastReviewed": 1710000000000, "nextReview": 1710086400000, "interval": 1, "ease": 2.5, "streak": 1, "failures": 0}
+      ]
     }
   ],
   "courses": [
@@ -42,6 +48,14 @@
             "Read and write all Katakana characters",
             "Use greetings like おはようございます and こんにちは",
             "Count from 1 to 100"
+          ],
+          "resources": [
+            {"label": "Official Japanese Gov. Language Portal", "url": "https://www.japaneselanguage.gov"},
+            {"label": "Genki Online", "url": "https://genki.japantimes.co.jp/self_en"}
+          ],
+          "questions": [
+            {"question": "What is Hiragana used for?", "answer": "Native Japanese words, grammar particles, and verb endings."},
+            {"question": "How do you say 'Good morning' in Japanese?", "answer": "おはようございます (ohayō gozaimasu)"}
           ],
           "lessons": [
             {
@@ -82,6 +96,10 @@
             "Form questions with the particle か (ka)",
             "Use the possessive particle の (no)"
           ],
+          "resources": [],
+          "questions": [
+            {"question": "What is the basic sentence structure for 'X is Y' in Japanese?", "answer": "XはYです (X wa Y desu)"}
+          ],
           "lessons": [
             {
               "id": 1003,
@@ -108,6 +126,12 @@
             "Ask 'How much is it?' using いくらですか",
             "Use the particle も (too, also)"
           ],
+          "resources": [
+            {"label": "Japanese Shopping Phrases", "url": "https://www.tofugu.com/japanese/japanese-shopping-phrases/"}
+          ],
+          "questions": [
+            {"question": "How do you ask 'How much is this?' in Japanese?", "answer": "これはいくらですか。 (Kore wa ikura desu ka?)"}
+          ],
           "lessons": [
             {
               "id": 1004,
@@ -117,12 +141,7 @@
                 {
                   "type": "mcq",
                   "prompt": "If you are pointing to a bag that your friend is holding, which word do you use to refer to it?",
-                  "options": [
-                    "これ (kore)",
-                    "それ (sore)",
-                    "あれ (are)",
-                    "この (kono)"
-                  ],
+                  "options": ["これ (kore)", "それ (sore)", "あれ (are)", "この (kono)"],
                   "answer": 1
                 }
               ]
@@ -131,6 +150,10 @@
         }
       ]
     }
+  ],
+  "achievements": [
+    {"id": 1, "name": "First Steps", "desc": "Complete your first lesson."},
+    {"id": 2, "name": "Kana Master", "desc": "Master all Hiragana and Katakana."}
   ],
   "selectedProfileId": 1,
   "adminMode": false,
