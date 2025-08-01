@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal Module Test</title>
+</head>
+<body>
+    <h1>Minimal Module Test</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        const output = document.getElementById('output');
+        
+        function log(message, isError = false) {
+            output.innerHTML += `<div style="color: ${isError ? 'red' : 'green'}; margin: 0.5rem 0;">${message}</div>`;
+            console.log(message);
+        }
+        
+        try {
+            log('Testing basic module import...');
+            
+            // Test each module individually
+            log('Testing state.js...');
+            const stateModule = await import('./js/state.js');
+            log('✅ state.js loaded');
+            
+            log('Testing profileManager.js...');
+            const profileModule = await import('./js/profileManager.js');
+            log('✅ profileManager.js loaded');
+            
+            log('Testing dragDrop.js...');
+            const dragModule = await import('./js/dragDrop.js');
+            log('✅ dragDrop.js loaded');
+            
+            log('Testing ui.js...');
+            const uiModule = await import('./js/ui.js');
+            log('✅ ui.js loaded');
+            
+            log('All modules loaded successfully!');
+            
+        } catch (error) {
+            log(`❌ Error: ${error.message}`, true);
+            log(`Stack: ${error.stack}`, true);
+        }
+    </script>
+</body>
+</html> 

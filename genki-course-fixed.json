@@ -1,0 +1,144 @@
+[
+  {
+    "id": 1,
+    "title": "Genki I: An Integrated Course in Elementary Japanese",
+    "desc": "An integrated course in elementary Japanese, covering conversation, grammar, reading, and writing, based on the Genki I textbook.",
+    "icon": "📘",
+    "chapters": [
+      {
+        "id": 100,
+        "title": "Japanese Writing System",
+        "desc": "Learn the fundamentals of the three Japanese writing systems: Hiragana, Katakana, and Kanji.",
+        "icon": "✍️",
+        "lessons": [
+          {
+            "id": 1000,
+            "title": "Introduction to Hiragana & Katakana",
+            "content": "# Hiragana (ひらがな) & Katakana (カタカナ)\nJapanese uses three writing systems. Two of them, Hiragana and Katakana, are phonetic scripts where each character represents a syllable.\n\n## Hiragana\n- **Appearance:** Round and cursive.\n- **Usage:** Used for native Japanese words, grammatical particles, and verb/adjective endings.\n- **Example:** わたしはがくせいです (I am a student). The particles `は` and the ending `です` are in Hiragana.\n\n## Katakana\n- **Appearance:** Angular and sharp.\n- **Usage:** Used for foreign loanwords, foreign names, onomatopoeia, and for emphasis.\n- **Example:** アメリカ (Amerika) for 'America' or テレビ (terebi) for 'television'.",
+            "exercises": [
+              {
+                "type": "mcq",
+                "prompt": "Which script is used for foreign loanwords like 'television' (テレビ)?",
+                "options": [
+                  "Kanji",
+                  "Hiragana",
+                  "Katakana",
+                  "Romaji"
+                ],
+                "answer": 2
+              },
+              {
+                "type": "fill",
+                "prompt": "The particle 'は' (wa) and verb endings like 'ます' are written in ____.",
+                "answer": "Hiragana"
+              },
+              {
+                "type": "drag",
+                "prompt": "Match the script to its visual characteristic.",
+                "items": [
+                  "Hiragana",
+                  "Katakana",
+                  "Angular",
+                  "Round"
+                ],
+                "order": [
+                  0,
+                  3,
+                  1,
+                  2
+                ]
+              },
+              {
+                "type": "order",
+                "prompt": "Order the first three hiragana characters in the 'a' row.",
+                "items": [
+                  "う",
+                  "あ",
+                  "い"
+                ],
+                "order": [
+                  1,
+                  2,
+                  0
+                ]
+              },
+              {
+                "type": "code",
+                "prompt": "Write a Python print statement that outputs the Katakana for 'America'.",
+                "solution": "print(\"アメリカ\")"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 101,
+        "title": "Lesson 1: New Friends (あたらしいともだち)",
+        "desc": "Learn basic introductions, how to state what something is, ask questions, and show possession.",
+        "icon": "👋",
+        "lessons": [
+          {
+            "id": 1001,
+            "title": "Basic Sentence Structure: XはYです",
+            "content": "# Grammar: XはYです (X is Y)\nThis is the fundamental sentence structure in Japanese used to identify something. It establishes X as the topic and states that it is Y.\n\n## Components:\n- **X:** The topic of the sentence.\n- **は (wa):** The topic particle. It follows the topic.\n- **Y:** The identifier or description.\n- **です (desu):** The polite copula, like 'is', 'am', 'are'.\n\n### Examples:\n- わたしはメアリーです。(Watashi wa Mearii desu.) - I am Mary.\n- やましたさんはせんせいです。(Yamashita-san wa sensee desu.) - Mr. Yamashita is a teacher.\n\n## Forming Questions\nTo turn a statement into a yes/no question, simply add the particle **か (ka)** at the end.\n- **Question:** メアリーさんはがくせいですか。(Mearii-san wa gakusee desu ka?) - Is Mary a student?",
+            "exercises": [
+              {
+                "type": "mcq",
+                "prompt": "What particle is used to mark the topic of a sentence?",
+                "options": [
+                  "を (o)",
+                  "が (ga)",
+                  "は (wa)",
+                  "も (mo)"
+                ],
+                "answer": 2
+              },
+              {
+                "type": "fill",
+                "prompt": "To make a polite statement a question, you add the particle ____ at the end.",
+                "answer": "か"
+              },
+              {
+                "type": "drag",
+                "prompt": "Arrange the words to form the sentence: 'Mr. Tanaka is Japanese.'",
+                "items": [
+                  "です",
+                  "は",
+                  "たなかさん",
+                  "にほんじん"
+                ],
+                "order": [
+                  2,
+                  1,
+                  3,
+                  0
+                ]
+              },
+              {
+                "type": "order",
+                "prompt": "Order the words to ask the question: 'Is Professor Yamashita a teacher?'",
+                "items": [
+                  "やましたせんせい",
+                  "は",
+                  "せんせい",
+                  "ですか"
+                ],
+                "order": [
+                  0,
+                  1,
+                  2,
+                  3
+                ]
+              },
+              {
+                "type": "code",
+                "prompt": "Write a Python print statement that outputs the Japanese word for 'student'.",
+                "solution": "print(\"がくせい\")"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+] 

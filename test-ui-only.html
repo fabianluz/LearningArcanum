@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>UI Module Test</title>
+</head>
+<body>
+    <h1>UI Module Test</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        const output = document.getElementById('output');
+        
+        function log(message, isError = false) {
+            output.innerHTML += `<div style="color: ${isError ? 'red' : 'green'}; margin: 0.5rem 0;">${message}</div>`;
+            console.log(message);
+        }
+        
+        try {
+            log('Testing ui.js import...');
+            const uiModule = await import('./js/ui.js');
+            log('✅ ui.js loaded successfully');
+            log('Available exports: ' + Object.keys(uiModule).join(', '));
+            
+        } catch (error) {
+            log(`❌ Error loading ui.js: ${error.message}`, true);
+            log(`Error location: ${error.stack}`, true);
+        }
+    </script>
+</body>
+</html> 

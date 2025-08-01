@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Arcanum - The Ultimate Local-First Learning Engine</title>
-  <link rel="stylesheet" href="css/style.css?v=7">
-  <link rel="stylesheet" href="css/themes.css?v=7">
+  <title>Arcanum - Fresh Start</title>
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/themes.css?v=3">
 </head>
 <body class="theme-light">
   <div id="theme-switcher" tabindex="0" aria-label="Switch Theme">🕯️</div>
@@ -18,7 +18,7 @@
   </main>
   <div id="modal-root" aria-live="polite"></div>
   
-    <script>
+  <script>
     // Simple initialization with error handling
     const status = document.getElementById('status');
     
@@ -36,30 +36,31 @@
     
     if (!themeSwitcher || !appRoot || !modalRoot) {
       updateStatus('❌ Missing required DOM elements', true);
-    } else {
-      updateStatus('✅ DOM elements found');
-      
-      // Load modules
-      Promise.all([
-        import('./js/state.js'),
-        import('./js/profileManager.js'),
-        import('./js/ui.js'),
-        import('./js/dragDrop.js')
-      ]).then(([stateModule, profileModule, uiModule, dragModule]) => {
-        updateStatus('✅ All modules loaded successfully');
-        
-        // Initialize the application
-        try {
-          uiModule.initUI();
-          updateStatus('✅ Application initialized successfully');
-        } catch (error) {
-          updateStatus(`❌ Error initializing UI: ${error.message}`, true);
-        }
-        
-      }).catch(error => {
-        updateStatus(`❌ Error loading modules: ${error.message}`, true);
-      });
+      return;
     }
+    
+    updateStatus('✅ DOM elements found');
+    
+    // Load modules
+    Promise.all([
+      import('./js/state.js'),
+      import('./js/profileManager.js'),
+      import('./js/ui.js'),
+      import('./js/dragDrop.js')
+    ]).then(([stateModule, profileModule, uiModule, dragModule]) => {
+      updateStatus('✅ All modules loaded successfully');
+      
+      // Initialize the application
+      try {
+        uiModule.initUI();
+        updateStatus('✅ Application initialized successfully');
+      } catch (error) {
+        updateStatus(`❌ Error initializing UI: ${error.message}`, true);
+      }
+      
+    }).catch(error => {
+      updateStatus(`❌ Error loading modules: ${error.message}`, true);
+    });
   </script>
 </body>
-</html>
+</html> 

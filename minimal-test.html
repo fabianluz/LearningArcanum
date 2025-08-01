@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <div id="theme-switcher" tabindex="0" aria-label="Switch Theme"></div>
+  <main id="app-root">
+    <div>Loading...</div>
+  </main>
+  <div id="modal-root" aria-live="polite"></div>
+  
+  <script>
+    console.log('Minimal test starting...');
+    
+    // Test 1: Check if DOM elements exist
+    const themeSwitcher = document.getElementById('theme-switcher');
+    const appRoot = document.getElementById('app-root');
+    const modalRoot = document.getElementById('modal-root');
+    
+    console.log('Theme switcher:', themeSwitcher);
+    console.log('App root:', appRoot);
+    console.log('Modal root:', modalRoot);
+    
+    if (themeSwitcher && appRoot && modalRoot) {
+      console.log('✅ All DOM elements found');
+      appRoot.innerHTML = '<div class="success">✅ DOM elements loaded successfully</div>';
+    } else {
+      console.log('❌ Missing DOM elements');
+      appRoot.innerHTML = '<div class="error">❌ Missing DOM elements</div>';
+    }
+    
+    // Test 2: Try to load modules
+    setTimeout(() => {
+      console.log('Attempting to load modules...');
+      
+      import('./js/state.js').then(stateModule => {
+        console.log('✅ state.js loaded:', stateModule);
+        appRoot.innerHTML += '<div class="success">✅ state.js loaded</div>';
+        
+        // Test state functions
+        try {
+          const profiles = stateModule.getProfiles();
+          console.log('Profiles:', profiles);
+          appRoot.innerHTML += '<div class="success">✅ getProfiles() works</div>';
+        } catch (error) {
+          console.error('Error calling getProfiles:', error);
+          appRoot.innerHTML += '<div class="error">❌ getProfiles() failed: ' + error.message + '</div>';
+        }
+        
+      }).catch(error => {
+        console.error('❌ Error loading state.js:', error);
+        appRoot.innerHTML += '<div class="error">❌ state.js failed: ' + error.message + '</div>';
+      });
+      
+    }, 500);
+  </script>
+</body>
+</html> 

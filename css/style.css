@@ -851,24 +851,34 @@ body.theme-light {
 
 /* --- Course View Styles --- */
 .course-view-fullscreen {
-  min-height: 100vh;
+  min-height: calc(100vh - 64px);
   width: 100vw;
   background: var(--background);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding-top: 80px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  grid-template-areas: 
+    "header"
+    "content";
   box-sizing: border-box;
+  margin-top: 64px;
+  position: relative;
 }
 .course-header {
+  grid-area: header;
   width: 100%;
   max-width: 900px;
-  margin: 0 auto 2.5rem auto;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1.2rem;
+  padding: 2rem 1rem;
+  background: var(--background);
+  border-bottom: 3px solid var(--accent);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 .course-header-main {
   display: flex;
@@ -897,12 +907,33 @@ body.theme-light {
 }
 
 .chapters-grid-container {
+  grid-area: content;
   width: 100%;
   max-width: 1100px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 2rem 1rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 64px - 200px);
+}
+
+.chapters-grid-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chapters-grid-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chapters-grid-container::-webkit-scrollbar-thumb {
+  background-color: var(--accent);
+  border-radius: 4px;
+}
+
+.chapters-grid-container::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text);
 }
 .chapters-grid-title {
   font-family: 'Georgia', serif;
@@ -917,6 +948,7 @@ body.theme-light {
   gap: 2rem;
   width: 100%;
   margin-bottom: 2rem;
+  min-height: min-content;
 }
 .chapter-card {
   background: var(--card-bg);
@@ -956,13 +988,17 @@ body.theme-light {
 @media (max-width: 900px) {
   .course-header {
     max-width: 98vw;
-    padding: 0 0.5rem;
+    padding: 1.5rem 0.5rem;
   }
   .chapters-grid {
     gap: 1rem;
   }
   .course-view-fullscreen {
-    padding-top: 70px;
+    margin-top: 64px;
+  }
+  .chapters-grid-container {
+    padding: 1.5rem 0.5rem;
+    max-height: calc(100vh - 64px - 180px);
   }
 }
 @media (max-width: 600px) {
@@ -979,6 +1015,24 @@ body.theme-light {
   }
   .chapters-grid {
     grid-template-columns: 1fr;
+  }
+  .chapters-grid-container {
+    padding: 1rem 0.25rem;
+    max-height: calc(100vh - 48px - 160px);
+  }
+  .course-header {
+    padding: 1.5rem 0.25rem;
+  }
+  .course-view-fullscreen {
+    margin-top: 48px;
+    min-height: calc(100vh - 48px);
+  }
+  .course-wide-view {
+    margin-top: 48px;
+    min-height: calc(100vh - 48px);
+  }
+  .course-wide-head {
+    padding: 1rem 0.25rem;
   }
 }
 
@@ -1390,23 +1444,26 @@ body.theme-light {
   align-items: center;
   justify-content: center;
   gap: 2.2rem;
-  padding-top: 2.2rem;
+  padding: 2.2rem 1rem 2.2rem 1rem;
   background: var(--background);
-  z-index: 2;
-  position: relative;
+  z-index: 50;
+  position: sticky;
+  top: 0;
   box-sizing: border-box;
   /* Add clear separation from columns below */
-  border-bottom: 1.5px solid var(--card-border);
+  border-bottom: 3px solid var(--accent);
   margin-bottom: 2.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 .course-wide-view {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100vw;
-  min-height: 90vh;
+  min-height: calc(100vh - 64px);
   background: var(--background);
   box-sizing: border-box;
+  margin-top: 64px;
 }
 .course-wide-columns {
   display: flex;
@@ -1443,7 +1500,7 @@ body.theme-light {
     flex-direction: column;
     gap: 1.2rem;
     align-items: center;
-    padding-top: 1.2rem;
+    padding: 1.5rem 0.5rem;
     margin-bottom: 1.2rem;
   }
   .course-wide-columns {
@@ -1453,6 +1510,9 @@ body.theme-light {
   }
   .course-wide-divider {
     display: none;
+  }
+  .course-wide-view {
+    margin-top: 64px;
   }
 }
 
@@ -3177,6 +3237,14 @@ body.theme-dark .question-divider {
     height: 48px;
     padding: 0.3rem 0.2rem;
   }
+  .course-view-fullscreen {
+    margin-top: 48px;
+    min-height: calc(100vh - 48px);
+  }
+  .course-wide-view {
+    margin-top: 48px;
+    min-height: calc(100vh - 48px);
+  }
   .navbar-title {
     font-size: 1rem;
   }
@@ -3225,6 +3293,9 @@ body.theme-dark .question-divider {
     flex-direction: row;
     height: 44px;
     padding: 0.1rem 0.1rem;
+  }
+  .course-view-fullscreen {
+    padding-top: 70px;
   }
   .navbar-title {
     font-size: 0.98rem;

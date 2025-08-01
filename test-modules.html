@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Modules</title>
+</head>
+<body>
+  <h1>Testing Arcanum Modules</h1>
+  <div id="output"></div>
+  <script type="module" src="js/test-modules.js"></script>
+  <script>
+    // Add output to page
+    const originalLog = console.log;
+    const originalError = console.error;
+    const output = document.getElementById('output');
+    
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      output.innerHTML += '<p style="color: green;">' + args.join(' ') + '</p>';
+    };
+    
+    console.error = function(...args) {
+      originalError.apply(console, args);
+      output.innerHTML += '<p style="color: red;">' + args.join(' ') + '</p>';
+    };
+  </script>
+</body>
+</html> 

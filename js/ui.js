@@ -126,6 +126,7 @@ function renderAdminSlider() {
       <span class="admin-slider"></span>
     </label>
     <span class="admin-label">Admin</span>
+    <button onclick="resetApp()" style="background: #dc3545; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-left: 0.5rem;">Reset</button>
   </div>`;
 }
 
@@ -1147,28 +1148,7 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
     // Admin: Add lessons
     if (admin && root.querySelector('#add-lessons-btn')) {
       root.querySelector('#add-lessons-btn').onclick = () => {
-        showModal(`
-          <h2>Add Lessons (JSON)</h2>
-          <textarea id="bulk-lesson-json" rows="8" style="width:100%;font-family:monospace;"></textarea>
-          <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
-            <button class="admin-btn" id="bulk-lesson-add-btn">Add</button>
-            <button class="admin-btn" id="bulk-lesson-cancel-btn">Cancel</button>
-          </div>
-        `);
-        document.getElementById('bulk-lesson-cancel-btn').onclick = closeModal;
-        document.getElementById('bulk-lesson-add-btn').onclick = () => {
-          const val = document.getElementById('bulk-lesson-json').value;
-          try {
-            const arr = JSON.parse(val);
-            if (!Array.isArray(arr)) throw new Error('Must be an array');
-            chapter.lessons = chapter.lessons.concat(arr.map(l => ({ ...l, id: Date.now() + Math.floor(Math.random()*10000) })));
-            state.editCourse(course.id, { chapters: course.chapters });
-            closeModal();
-            renderLessonView(courseId, chapterId, chapter.lessons[chapter.lessons.length-1].id, 0);
-          } catch (e) {
-            alert('Invalid JSON: ' + e.message);
-          }
-        };
+        showBulkAddLessonsModal(courseId, chapterId);
       };
     }
   }
@@ -1348,14 +1328,14 @@ function showModalTabbed({title, formHtml, jsonEditHtml, jsonTemplate, onFormMou
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal-content modal-lg">
     <div class="modal-tabs">
-      <button class="modal-tab-btn active" data-tab="form">Form</button>
+      <button class="modal-tab-btn" data-tab="form">Form</button>
       ${jsonEditHtml ? '<button class="modal-tab-btn" data-tab="json">JSON</button>' : ''}
-      <button class="modal-tab-btn" data-tab="template">JSON Template</button>
+      <button class="modal-tab-btn active" data-tab="template">JSON Template</button>
       ${jsonFaq ? '<button class="modal-tab-btn" data-tab="faq">FAQ</button>' : ''}
     </div>
-    <div class="modal-tab-content modal-tab-form">${formHtml}</div>
+    <div class="modal-tab-content modal-tab-form" style="display:none;">${formHtml}</div>
     ${jsonEditHtml ? `<div class="modal-tab-content modal-tab-json" style="display:none;">${jsonEditHtml}</div>` : ''}
-    <div class="modal-tab-content modal-tab-template" style="display:none;">
+    <div class="modal-tab-content modal-tab-template">
       <pre class="modal-json-template"><code>${jsonTemplate}</code></pre>
       <button class="admin-btn" id="copy-json-template-btn">Copy JSON</button>
     </div>
@@ -1391,80 +1371,12 @@ function showModalTabbed({title, formHtml, jsonEditHtml, jsonTemplate, onFormMou
 }
 
 function showBulkAddModal(type) {
-  const jsonTemplate = type === 'course' ?
-`[
-  {
-    "id": 1,
-    "title": "Learn to Code in Python",
-    "desc": "Start your journey with Python.",
-    "icon": "🐍",
-    "chapters": [
-      {
-        "id": 101,
-        "title": "Introduction to Python",
-        "desc": "...",
-        "icon": "📖",
-        "resources": [
-          { "label": "Official Python Docs", "url": "https://docs.python.org/3/" },
-          { "label": "Python Tutorial (W3Schools)", "url": "https://www.w3schools.com/python/" }
-        ],
-        "questions": [
-          "What is Python used for?",
-          "How do you install Python?",
-          "What is a variable?"
-        ],
-        "lessons": [
-          {
-            "id": 1001,
-            "title": "What is Python?",
-            "content": "Markdown or HTML content...",
-            "exercises": [
-              { "type": "code", "prompt": "Write a Hello World program.", "starter": "print('')", "solution": "print('Hello, World!')" },
-              { "type": "mcq", "prompt": "What is Python?", "options": ["A snake", "A programming language", "A car"], "answer": 1 },
-              { "type": "fill", "prompt": "Python is a ____ language.", "answer": "programming" },
-              { "type": "drag", "prompt": "Order the steps to print in Python.", "items": ["Type print", "Open parenthesis", "Add string", "Close parenthesis"], "order": [0,1,2,3] },
-              { "type": "order", "prompt": "Arrange the numbers in ascending order.", "items": [3,1,2], "order": [1,2,0] }
-            ]
-          }
-        ]
-      },
-      {
-        "id": 102,
-        "title": "Variables and Data Types",
-        "desc": "...",
-        "icon": "🔢",
-        "lessons": [
-          {
-            "id": 1002,
-            "title": "Variables",
-            "content": "Markdown or HTML content...",
-            "exercises": [
-              { "type": "code", "prompt": "Assign 5 to variable x.", "starter": "x = ", "solution": "x = 5" }
-            ]
-          }
-        ]
-      },
-      {
-        "id": 103,
-        "title": "Control Flow",
-        "desc": "...",
-        "icon": "🔁",
-        "lessons": [
-          {
-            "id": 1003,
-            "title": "If Statements",
-            "content": "Markdown or HTML content...",
-            "exercises": [
-              { "type": "mcq", "prompt": "Which keyword starts a conditional?", "options": ["if", "for", "while"], "answer": 0 }
-            ]
-          }
-        ]
-      }
-    ]
+  if (type === 'course') {
+    showAddCourseModal();
+    return;
   }
-]`
-:
-`{
+
+  const jsonTemplate = `{
   "profiles": [
     {
       "id": 1,
@@ -1656,9 +1568,9 @@ function showBulkAddModal(type) {
   `;
 
   showModalTabbed({
-    title: `Add ${type === 'course' ? 'Courses' : 'Full App State'}`,
+    title: `Add Full App State`,
     formHtml: `
-      <h2>Add ${type === 'course' ? 'Courses' : 'Full App State'} (JSON)</h2>
+      <h2>Add Full App State (JSON)</h2>
       <textarea id="bulk-json" rows="16" style="width:100%;font-family:monospace;"></textarea>
       <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
         <button class="admin-btn" id="bulk-add-btn">Add</button>
@@ -1672,8 +1584,7 @@ function showBulkAddModal(type) {
         const val = document.getElementById('bulk-json').value;
         try {
           const arr = JSON.parse(val);
-          if (type === 'course') state.addCourses(arr);
-          else if (type === 'profile') {
+          if (type === 'profile') {
             // If full app state, replace state
             localStorage.setItem('arcanum-app-state', JSON.stringify(arr));
             location.reload();
@@ -1686,6 +1597,505 @@ function showBulkAddModal(type) {
       };
     },
     jsonFaq: faqHtml
+  });
+}
+
+function showAddCourseModal() {
+  let courseData = {
+    title: '',
+    desc: '',
+    icon: '📚',
+    summary: '',
+    tags: [],
+    goals: [],
+    chapters: []
+  };
+
+  const jsonTemplate = JSON.stringify([
+    {
+      "id": 1,
+      "title": "Learn to Code in Python",
+      "desc": "Start your journey with Python.",
+      "icon": "🐍",
+      "summary": "By the end of this course, you will be able to write Python programs and understand basic programming concepts.",
+      "tags": ["python", "programming", "beginner"],
+      "goals": [
+        "Understand Python syntax and basic concepts",
+        "Write simple Python programs",
+        "Use variables and data types"
+      ],
+      "chapters": [
+        {
+          "id": 101,
+          "title": "Introduction to Python",
+          "desc": "Learn the basics of Python programming.",
+          "icon": "📖",
+          "summary": "You will learn what Python is and write your first program.",
+          "goals": [
+            "Understand what Python is",
+            "Install Python on your computer",
+            "Write a Hello World program"
+          ],
+          "resources": [
+            { "label": "Official Python Docs", "url": "https://docs.python.org/3/" },
+            { "label": "Python Tutorial", "url": "https://www.w3schools.com/python/" }
+          ],
+          "questions": [
+            {"question": "What is Python used for?", "answer": "Python is a versatile programming language used for web development, data science, automation, and more."},
+            {"question": "How do you install Python?", "answer": "Download from python.org and run the installer, or use a package manager like pip."}
+          ],
+          "lessons": [
+            {
+              "id": 1001,
+              "title": "What is Python?",
+              "content": "# What is Python?\n\nPython is a high-level programming language known for its simplicity and readability.\n\n## Key Features\n- Easy to learn\n- Versatile applications\n- Large community\n- Extensive libraries\n\n## Example\n```python\nprint('Hello, World!')\n```",
+              "exercises": [
+                {
+                  "type": "mcq",
+                  "prompt": "What is Python?",
+                  "options": ["A snake", "A programming language", "A car", "A book"],
+                  "answer": 1
+                },
+                {
+                  "type": "fill",
+                  "prompt": "Python is a __________ programming language.",
+                  "answer": "high-level"
+                },
+                {
+                  "type": "code",
+                  "prompt": "Write a Python program that prints 'Hello, World!'",
+                  "starter": "print('')",
+                  "solution": "print('Hello, World!')"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ], null, 2);
+
+  const renderChapterForm = (chapterIndex) => {
+    const chapter = courseData.chapters[chapterIndex] || {
+      title: '',
+      desc: '',
+      icon: '📖',
+      summary: '',
+      goals: [],
+      resources: [],
+      questions: [],
+      lessons: []
+    };
+
+    const renderLessonForm = (lessonIndex) => {
+      const lesson = chapter.lessons[lessonIndex] || {
+        title: '',
+        content: '',
+        exercises: []
+      };
+
+      const renderExerciseForm = (exerciseIndex) => {
+        const exercise = lesson.exercises[exerciseIndex] || {
+          type: 'mcq',
+          prompt: '',
+          options: ['', ''],
+          answer: 0
+        };
+
+        return `
+          <div class="exercise-form" style="border: 1px solid #ddd; padding: 1rem; margin: 0.5rem 0; border-radius: 4px;">
+            <h4>Exercise ${exerciseIndex + 1}</h4>
+            <div style="margin-bottom: 0.5rem;">
+              <label>Type:</label>
+              <select id="exercise-type-${chapterIndex}-${lessonIndex}-${exerciseIndex}" onchange="updateExerciseType(${chapterIndex}, ${lessonIndex}, ${exerciseIndex}, this.value)">
+                <option value="mcq" ${exercise.type === 'mcq' ? 'selected' : ''}>Multiple Choice</option>
+                <option value="fill" ${exercise.type === 'fill' ? 'selected' : ''}>Fill-in-the-blank</option>
+                <option value="code" ${exercise.type === 'code' ? 'selected' : ''}>Code</option>
+              </select>
+            </div>
+            <div style="margin-bottom: 0.5rem;">
+              <label>Prompt:</label>
+              <textarea id="exercise-prompt-${chapterIndex}-${lessonIndex}-${exerciseIndex}" rows="2" style="width: 100%;" placeholder="Enter the exercise prompt...">${exercise.prompt}</textarea>
+            </div>
+            ${exercise.type === 'mcq' ? `
+              <div style="margin-bottom: 0.5rem;">
+                <label>Options:</label>
+                ${exercise.options.map((option, optIndex) => `
+                  <div style="margin: 0.25rem 0;">
+                    <input type="text" id="exercise-option-${chapterIndex}-${lessonIndex}-${exerciseIndex}-${optIndex}" value="${option}" placeholder="Option ${optIndex + 1}" style="width: 80%;">
+                    <input type="radio" name="correct-${chapterIndex}-${lessonIndex}-${exerciseIndex}" value="${optIndex}" ${exercise.answer === optIndex ? 'checked' : ''} style="margin-left: 0.5rem;">
+                    <label>Correct</label>
+                  </div>
+                `).join('')}
+                <button type="button" onclick="addExerciseOption(${chapterIndex}, ${lessonIndex}, ${exerciseIndex})" style="margin-top: 0.5rem;">+ Add Option</button>
+              </div>
+            ` : exercise.type === 'fill' ? `
+              <div style="margin-bottom: 0.5rem;">
+                <label>Answer:</label>
+                <input type="text" id="exercise-answer-${chapterIndex}-${lessonIndex}-${exerciseIndex}" value="${exercise.answer || ''}" style="width: 100%;" placeholder="Correct answer">
+              </div>
+            ` : exercise.type === 'code' ? `
+              <div style="margin-bottom: 0.5rem;">
+                <label>Starter Code:</label>
+                <textarea id="exercise-starter-${chapterIndex}-${lessonIndex}-${exerciseIndex}" rows="3" style="width: 100%; font-family: monospace;" placeholder="Starter code (optional)">${exercise.starter || ''}</textarea>
+              </div>
+              <div style="margin-bottom: 0.5rem;">
+                <label>Solution:</label>
+                <textarea id="exercise-solution-${chapterIndex}-${lessonIndex}-${exerciseIndex}" rows="3" style="width: 100%; font-family: monospace;" placeholder="Correct solution">${exercise.solution || ''}</textarea>
+              </div>
+            ` : ''}
+            <div style="margin-top: 1rem;">
+              <button type="button" onclick="removeExercise(${chapterIndex}, ${lessonIndex}, ${exerciseIndex})" style="background: #dc3545; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 3px;">Remove Exercise</button>
+            </div>
+          </div>
+        `;
+      };
+
+      return `
+        <div class="lesson-form" style="border: 1px solid #ccc; padding: 1rem; margin: 0.5rem 0; border-radius: 4px;">
+          <h3>Lesson ${lessonIndex + 1}</h3>
+          <div style="margin-bottom: 0.5rem;">
+            <label>Title:</label>
+            <input type="text" id="lesson-title-${chapterIndex}-${lessonIndex}" value="${lesson.title}" style="width: 100%;" placeholder="Lesson title">
+          </div>
+          <div style="margin-bottom: 0.5rem;">
+            <label>Content (Markdown):</label>
+            <textarea id="lesson-content-${chapterIndex}-${lessonIndex}" rows="6" style="width: 100%; font-family: monospace;" placeholder="Lesson content in Markdown format...">${lesson.content}</textarea>
+          </div>
+          <div style="margin-bottom: 1rem;">
+            <h4>Exercises</h4>
+            <div id="exercises-container-${chapterIndex}-${lessonIndex}">
+              ${lesson.exercises.map((_, exIndex) => renderExerciseForm(exIndex)).join('')}
+            </div>
+            <button type="button" onclick="addExercise(${chapterIndex}, ${lessonIndex})" style="margin-top: 0.5rem;">+ Add Exercise</button>
+          </div>
+          <div style="margin-top: 1rem;">
+            <button type="button" onclick="removeLesson(${chapterIndex}, ${lessonIndex})" style="background: #dc3545; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 3px;">Remove Lesson</button>
+          </div>
+        </div>
+      `;
+    };
+
+    return `
+      <div class="chapter-form" style="border: 1px solid #bbb; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+        <h2>Chapter ${chapterIndex + 1}</h2>
+        <div style="margin-bottom: 0.5rem;">
+          <label>Title:</label>
+          <input type="text" id="chapter-title-${chapterIndex}" value="${chapter.title}" style="width: 100%;" placeholder="Chapter title">
+        </div>
+        <div style="margin-bottom: 0.5rem;">
+          <label>Description:</label>
+          <textarea id="chapter-desc-${chapterIndex}" rows="2" style="width: 100%;" placeholder="Chapter description">${chapter.desc}</textarea>
+        </div>
+        <div style="margin-bottom: 0.5rem;">
+          <label>Icon:</label>
+          <input type="text" id="chapter-icon-${chapterIndex}" value="${chapter.icon}" style="width: 100px;" placeholder="📖">
+        </div>
+        <div style="margin-bottom: 0.5rem;">
+          <label>Summary:</label>
+          <textarea id="chapter-summary-${chapterIndex}" rows="2" style="width: 100%;" placeholder="What students will learn in this chapter">${chapter.summary}</textarea>
+        </div>
+        <div style="margin-bottom: 0.5rem;">
+          <label>Goals (one per line):</label>
+          <textarea id="chapter-goals-${chapterIndex}" rows="3" style="width: 100%;" placeholder="Learning goal 1&#10;Learning goal 2&#10;Learning goal 3">${chapter.goals.join('\n')}</textarea>
+        </div>
+        <div style="margin-bottom: 0.5rem;">
+          <label>Resources (JSON format):</label>
+          <textarea id="chapter-resources-${chapterIndex}" rows="3" style="width: 100%; font-family: monospace;" placeholder='[{"label": "Resource Name", "url": "https://example.com"}]'>${JSON.stringify(chapter.resources, null, 2)}</textarea>
+        </div>
+        <div style="margin-bottom: 0.5rem;">
+          <label>Questions (JSON format):</label>
+          <textarea id="chapter-questions-${chapterIndex}" rows="3" style="width: 100%; font-family: monospace;" placeholder='[{"question": "Question text?", "answer": "Answer text"}]'>${JSON.stringify(chapter.questions, null, 2)}</textarea>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <h3>Lessons</h3>
+          <div id="lessons-container-${chapterIndex}">
+            ${chapter.lessons.map((_, lessonIndex) => renderLessonForm(lessonIndex)).join('')}
+          </div>
+          <button type="button" onclick="addLesson(${chapterIndex})" style="margin-top: 0.5rem;">+ Add Lesson</button>
+        </div>
+        <div style="margin-top: 1rem;">
+          <button type="button" onclick="removeChapter(${chapterIndex})" style="background: #dc3545; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 3px;">Remove Chapter</button>
+        </div>
+      </div>
+    `;
+  };
+
+  const formHtml = `
+    <div style="max-height: 70vh; overflow-y: auto;">
+      <h2>Course Information</h2>
+      <div style="margin-bottom: 0.5rem;">
+        <label>Title:</label>
+        <input type="text" id="course-title" value="${courseData.title}" style="width: 100%;" placeholder="Course title">
+      </div>
+      <div style="margin-bottom: 0.5rem;">
+        <label>Description:</label>
+        <textarea id="course-desc" rows="3" style="width: 100%;" placeholder="Course description">${courseData.desc}</textarea>
+      </div>
+      <div style="margin-bottom: 0.5rem;">
+        <label>Icon:</label>
+        <input type="text" id="course-icon" value="${courseData.icon}" style="width: 100px;" placeholder="📚">
+      </div>
+      <div style="margin-bottom: 0.5rem;">
+        <label>Summary:</label>
+        <textarea id="course-summary" rows="2" style="width: 100%;" placeholder="What students will learn by the end of this course">${courseData.summary}</textarea>
+      </div>
+      <div style="margin-bottom: 0.5rem;">
+        <label>Tags (comma-separated):</label>
+        <input type="text" id="course-tags" value="${courseData.tags.join(', ')}" style="width: 100%;" placeholder="tag1, tag2, tag3">
+      </div>
+      <div style="margin-bottom: 0.5rem;">
+        <label>Goals (one per line):</label>
+        <textarea id="course-goals" rows="3" style="width: 100%;" placeholder="Learning goal 1&#10;Learning goal 2&#10;Learning goal 3">${courseData.goals.join('\n')}</textarea>
+      </div>
+      
+      <h2>Chapters</h2>
+      <div id="chapters-container">
+        ${courseData.chapters.map((_, chapterIndex) => renderChapterForm(chapterIndex)).join('')}
+      </div>
+      <button type="button" onclick="addChapter()" style="margin-top: 1rem;">+ Add Chapter</button>
+    </div>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-course-form-btn">Save Course</button>
+      <button class="admin-btn" id="cancel-course-btn">Cancel</button>
+    </div>
+  `;
+
+  const jsonEditHtml = `
+    <h2>JSON Editor</h2>
+    <div style="margin-bottom: 1rem;">
+      <label>Upload JSON file:</label>
+      <input type="file" id="json-file-upload" accept=".json" style="margin-left: 0.5rem;">
+    </div>
+    <textarea id="course-json" rows="20" style="width:100%;font-family:monospace;" placeholder="Paste your course JSON here..."></textarea>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+      <button class="admin-btn" id="save-course-json-btn">Save Course</button>
+      <button class="admin-btn" id="cancel-course-json-btn">Cancel</button>
+    </div>
+  `;
+
+  showModalTabbed({
+    title: 'Add Course',
+    formHtml,
+    jsonEditHtml,
+    jsonTemplate,
+    onFormMount: () => {
+      // Add global functions for dynamic form manipulation
+      window.addChapter = () => {
+        courseData.chapters.push({
+          title: '',
+          desc: '',
+          icon: '📖',
+          summary: '',
+          goals: [],
+          resources: [],
+          questions: [],
+          lessons: []
+        });
+        document.getElementById('chapters-container').innerHTML = courseData.chapters.map((_, i) => renderChapterForm(i)).join('');
+      };
+
+      window.removeChapter = (chapterIndex) => {
+        courseData.chapters.splice(chapterIndex, 1);
+        document.getElementById('chapters-container').innerHTML = courseData.chapters.map((_, i) => renderChapterForm(i)).join('');
+      };
+
+      window.addLesson = (chapterIndex) => {
+        if (!courseData.chapters[chapterIndex]) courseData.chapters[chapterIndex] = { lessons: [] };
+        courseData.chapters[chapterIndex].lessons.push({
+          title: '',
+          content: '',
+          exercises: []
+        });
+        document.getElementById(`lessons-container-${chapterIndex}`).innerHTML = courseData.chapters[chapterIndex].lessons.map((_, i) => renderLessonForm(i)).join('');
+      };
+
+      window.removeLesson = (chapterIndex, lessonIndex) => {
+        courseData.chapters[chapterIndex].lessons.splice(lessonIndex, 1);
+        document.getElementById(`lessons-container-${chapterIndex}`).innerHTML = courseData.chapters[chapterIndex].lessons.map((_, i) => renderLessonForm(i)).join('');
+      };
+
+      window.addExercise = (chapterIndex, lessonIndex) => {
+        if (!courseData.chapters[chapterIndex]) courseData.chapters[chapterIndex] = { lessons: [] };
+        if (!courseData.chapters[chapterIndex].lessons[lessonIndex]) courseData.chapters[chapterIndex].lessons[lessonIndex] = { exercises: [] };
+        courseData.chapters[chapterIndex].lessons[lessonIndex].exercises.push({
+          type: 'mcq',
+          prompt: '',
+          options: ['', ''],
+          answer: 0
+        });
+        document.getElementById(`exercises-container-${chapterIndex}-${lessonIndex}`).innerHTML = courseData.chapters[chapterIndex].lessons[lessonIndex].exercises.map((_, i) => renderExerciseForm(i)).join('');
+      };
+
+      window.removeExercise = (chapterIndex, lessonIndex, exerciseIndex) => {
+        courseData.chapters[chapterIndex].lessons[lessonIndex].exercises.splice(exerciseIndex, 1);
+        document.getElementById(`exercises-container-${chapterIndex}-${lessonIndex}`).innerHTML = courseData.chapters[chapterIndex].lessons[lessonIndex].exercises.map((_, i) => renderExerciseForm(i)).join('');
+      };
+
+      window.updateExerciseType = (chapterIndex, lessonIndex, exerciseIndex, type) => {
+        const exercise = courseData.chapters[chapterIndex].lessons[lessonIndex].exercises[exerciseIndex];
+        exercise.type = type;
+        if (type === 'mcq' && !exercise.options) exercise.options = ['', ''];
+        if (type === 'mcq' && exercise.answer >= exercise.options.length) exercise.answer = 0;
+        document.getElementById(`exercises-container-${chapterIndex}-${lessonIndex}`).innerHTML = courseData.chapters[chapterIndex].lessons[lessonIndex].exercises.map((_, i) => renderExerciseForm(i)).join('');
+      };
+
+      window.addExerciseOption = (chapterIndex, lessonIndex, exerciseIndex) => {
+        courseData.chapters[chapterIndex].lessons[lessonIndex].exercises[exerciseIndex].options.push('');
+        document.getElementById(`exercises-container-${chapterIndex}-${lessonIndex}`).innerHTML = courseData.chapters[chapterIndex].lessons[lessonIndex].exercises.map((_, i) => renderExerciseForm(i)).join('');
+      };
+
+      // Add save button handlers
+      const saveBtn = document.getElementById('save-course-form-btn');
+      if (saveBtn) {
+        saveBtn.onclick = () => {
+          console.log('Save button clicked!');
+          // Collect form data
+          courseData.title = document.getElementById('course-title').value;
+          courseData.desc = document.getElementById('course-desc').value;
+          courseData.icon = document.getElementById('course-icon').value;
+          courseData.summary = document.getElementById('course-summary').value;
+          courseData.tags = document.getElementById('course-tags').value.split(',').map(t => t.trim()).filter(t => t);
+          courseData.goals = document.getElementById('course-goals').value.split('\n').map(g => g.trim()).filter(g => g);
+
+        // Collect chapters data
+        courseData.chapters = courseData.chapters.map((chapter, chapterIndex) => {
+          const newChapter = {
+            id: Date.now() + chapterIndex * 1000,
+            title: document.getElementById(`chapter-title-${chapterIndex}`).value,
+            desc: document.getElementById(`chapter-desc-${chapterIndex}`).value,
+            icon: document.getElementById(`chapter-icon-${chapterIndex}`).value,
+            summary: document.getElementById(`chapter-summary-${chapterIndex}`).value,
+            goals: document.getElementById(`chapter-goals-${chapterIndex}`).value.split('\n').map(g => g.trim()).filter(g => g),
+            resources: [],
+            questions: [],
+            lessons: []
+          };
+
+          try {
+            newChapter.resources = JSON.parse(document.getElementById(`chapter-resources-${chapterIndex}`).value);
+          } catch (e) {
+            newChapter.resources = [];
+          }
+
+          try {
+            newChapter.questions = JSON.parse(document.getElementById(`chapter-questions-${chapterIndex}`).value);
+          } catch (e) {
+            newChapter.questions = [];
+          }
+
+          // Collect lessons data
+          newChapter.lessons = chapter.lessons.map((lesson, lessonIndex) => {
+            const newLesson = {
+              id: Date.now() + chapterIndex * 1000 + lessonIndex * 100,
+              title: document.getElementById(`lesson-title-${chapterIndex}-${lessonIndex}`).value,
+              content: document.getElementById(`lesson-content-${chapterIndex}-${lessonIndex}`).value,
+              exercises: []
+            };
+
+            // Collect exercises data
+            newLesson.exercises = lesson.exercises.map((exercise, exerciseIndex) => {
+              const newExercise = {
+                type: document.getElementById(`exercise-type-${chapterIndex}-${lessonIndex}-${exerciseIndex}`).value,
+                prompt: document.getElementById(`exercise-prompt-${chapterIndex}-${lessonIndex}-${exerciseIndex}`).value
+              };
+
+              if (newExercise.type === 'mcq') {
+                newExercise.options = [];
+                newExercise.answer = 0;
+                for (let i = 0; i < 10; i++) {
+                  const optionEl = document.getElementById(`exercise-option-${chapterIndex}-${lessonIndex}-${exerciseIndex}-${i}`);
+                  if (optionEl) {
+                    newExercise.options.push(optionEl.value);
+                    if (optionEl.nextElementSibling.checked) {
+                      newExercise.answer = i;
+                    }
+                  }
+                }
+                newExercise.options = newExercise.options.filter(opt => opt.trim());
+              } else if (newExercise.type === 'fill') {
+                newExercise.answer = document.getElementById(`exercise-answer-${chapterIndex}-${lessonIndex}-${exerciseIndex}`).value;
+              } else if (newExercise.type === 'code') {
+                newExercise.starter = document.getElementById(`exercise-starter-${chapterIndex}-${lessonIndex}-${exerciseIndex}`).value;
+                newExercise.solution = document.getElementById(`exercise-solution-${chapterIndex}-${lessonIndex}-${exerciseIndex}`).value;
+              }
+
+              return newExercise;
+            });
+
+            return newLesson;
+          });
+
+          return newChapter;
+        });
+
+        // Add the course
+        const courseToAdd = {
+          id: Date.now(),
+          ...courseData
+        };
+
+        state.addCourses([courseToAdd]);
+        closeModal();
+        renderDashboardView();
+      };
+      } else {
+        console.error('Save button not found!');
+      }
+
+      const deleteBtn = document.getElementById('delete-course-btn');
+      if (deleteBtn) {
+        deleteBtn.onclick = () => {
+          closeModal();
+        };
+      }
+
+      const cancelBtn = document.getElementById('cancel-course-btn');
+      if (cancelBtn) {
+        cancelBtn.onclick = () => {
+          closeModal();
+        };
+      }
+    },
+    onJsonMount: () => {
+      // Handle JSON file upload
+      document.getElementById('json-file-upload').onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const jsonData = JSON.parse(e.target.result);
+              document.getElementById('course-json').value = JSON.stringify(jsonData, null, 2);
+            } catch (error) {
+              alert('Invalid JSON file: ' + error.message);
+            }
+          };
+          reader.readAsText(file);
+        }
+      };
+
+      // Handle JSON save
+      document.getElementById('save-course-json-btn').onclick = () => {
+        const jsonValue = document.getElementById('course-json').value;
+        try {
+          const courses = JSON.parse(jsonValue);
+          if (Array.isArray(courses)) {
+            state.addCourses(courses);
+          } else {
+            state.addCourses([courses]);
+          }
+          closeModal();
+          renderDashboardView();
+        } catch (e) {
+          alert('Invalid JSON: ' + e.message);
+        }
+      };
+
+      document.getElementById('cancel-course-json-btn').onclick = () => {
+        closeModal();
+      };
+    }
   });
 }
 
@@ -2684,34 +3094,427 @@ function showBulkAddChaptersModal(courseId) {
 
 // --- Add/Edit/Bulk JSON for Lessons ---
 function showBulkAddLessonsModal(courseId, chapterId) {
-  const jsonTemplate = `[
-  {
-    "id": 301,
-    "title": "New Lesson",
-    "content": "Lesson content...",
-    "exercises": []
-  }
-]`;
-  const faqHtml = `<b>Lessons FAQ</b><ul><li><b>id</b>: Unique number</li><li><b>title</b>: Lesson name</li><li><b>content</b>: Markdown/HTML</li><li><b>exercises</b>: Array of exercises</li></ul>`;
+  const templateData = [
+    {
+      id: 301,
+      title: "Introduction to Variables",
+      content: "# Introduction to Variables\n\nVariables are containers for storing data values.\n\n## What are Variables?\n\nA variable is a named storage location that can hold different types of data.\n\n### Example:\n\n```python\nname = \"John\"\nage = 25\nheight = 1.75\n```\n\nIn this example:\n- `name` stores a string\n- `age` stores an integer\n- `height` stores a float\n\n## Key Points:\n\n1. **Naming**: Use descriptive names\n2. **Assignment**: Use = to assign values\n3. **Types**: Python automatically determines data types\n4. **Reassignment**: Variables can be changed later\n\n```python\n# You can change the value later\nname = \"Jane\"\nage = 26\n```",
+      exercises: [
+        {
+          type: "mcq",
+          prompt: "What is a variable?",
+          options: [
+            "A container for storing data values",
+            "A type of function",
+            "A programming language",
+            "A computer program"
+          ],
+          answer: 0
+        },
+        {
+          type: "fill",
+          prompt: "Complete the code to create a variable named 'score' with the value 95:",
+          answer: "score = 95"
+        },
+        {
+          type: "code",
+          prompt: "Create a variable named 'greeting' and assign it the value 'Hello, World!'. Then print it.",
+          starter: "# Your code here",
+          solution: "greeting = 'Hello, World!'\nprint(greeting)"
+        }
+      ]
+    },
+    {
+      id: 302,
+      title: "Data Types",
+      content: "# Data Types in Programming\n\nDifferent types of data can be stored in variables.\n\n## Common Data Types:\n\n### 1. Strings\nText data enclosed in quotes\n```python\nmessage = \"Hello, World!\"\nname = 'Alice'\n```\n\n### 2. Integers\nWhole numbers\n```python\nage = 25\ncount = 100\n```\n\n### 3. Floats\nDecimal numbers\n```python\nprice = 19.99\npi = 3.14159\n```\n\n### 4. Booleans\nTrue or False values\n```python\nis_active = True\nis_complete = False\n```",
+      exercises: [
+        {
+          type: "mcq",
+          prompt: "Which data type is used for text?",
+          options: ["Integer", "String", "Float", "Boolean"],
+          answer: 1
+        },
+        {
+          type: "fill",
+          prompt: "Create a variable 'temperature' with the value 98.6 (this should be a float):",
+          answer: "temperature = 98.6"
+        }
+      ]
+    }
+  ];
+  
+  const jsonTemplate = JSON.stringify(templateData, null, 2);
+
+  const faqHtml = `<b>Lessons FAQ</b>
+<ul>
+<li><b>id</b>: Unique number (301, 302, etc.)</li>
+<li><b>title</b>: Lesson name (e.g., "Introduction to Variables")</li>
+<li><b>content</b>: Markdown content with # for headers, \`\`\` for code blocks</li>
+<li><b>exercises</b>: Array of exercise objects</li>
+</ul>
+<b>Exercise Types:</b>
+<ul>
+<li><b>mcq</b>: Multiple choice with options[] and answer (0-based index)</li>
+<li><b>fill</b>: Fill in the blank with answer</li>
+<li><b>code</b>: Programming exercise with prompt, starter, and solution</li>
+<li><b>drag</b>: Drag and drop with items[] and order[]</li>
+<li><b>order</b>: Reorder items with items[] and order[]</li>
+</ul>`;
+
+  // Generate form HTML for adding lessons
+  const generateLessonForm = () => {
+    let lessonIndex = 0;
+    const lessons = [];
+    
+    const renderLessonForm = (index) => {
+      return `
+        <div class="lesson-form-section" data-lesson-index="${index}">
+          <h3>Lesson ${index + 1}</h3>
+          <div class="form-group">
+            <label>Lesson ID:</label>
+            <input type="number" class="lesson-id-input" placeholder="301" value="${301 + index}">
+          </div>
+          <div class="form-group">
+            <label>Title:</label>
+            <input type="text" class="lesson-title-input" placeholder="Introduction to Variables">
+          </div>
+          <div class="form-group">
+            <label>Content (Markdown):</label>
+                         <textarea class="lesson-content-input" rows="8" placeholder="Enter your lesson content in Markdown format..."></textarea>
+          </div>
+          <div class="exercises-section">
+            <h4>Exercises</h4>
+            <div class="exercises-list" data-lesson-index="${index}">
+              <!-- Exercises will be added here -->
+            </div>
+            <button type="button" class="admin-btn add-exercise-btn" data-lesson-index="${index}">+ Add Exercise</button>
+          </div>
+          <button type="button" class="admin-btn remove-lesson-btn" data-lesson-index="${index}">Remove Lesson</button>
+        </div>
+      `;
+    };
+
+    const renderExerciseForm = (lessonIndex, exerciseIndex) => {
+      return `
+        <div class="exercise-form" data-lesson-index="${lessonIndex}" data-exercise-index="${exerciseIndex}">
+          <h5>Exercise ${exerciseIndex + 1}</h5>
+          <div class="form-group">
+            <label>Type:</label>
+            <select class="exercise-type-select">
+              <option value="mcq">Multiple Choice</option>
+              <option value="fill">Fill in the Blank</option>
+              <option value="code">Code Exercise</option>
+              <option value="drag">Drag & Drop</option>
+              <option value="order">Ordering</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Prompt:</label>
+            <textarea class="exercise-prompt-input" rows="3" placeholder="What is a variable?"></textarea>
+          </div>
+          <div class="exercise-type-fields">
+            <!-- Type-specific fields will be shown here -->
+          </div>
+          <button type="button" class="admin-btn remove-exercise-btn" data-lesson-index="${lessonIndex}" data-exercise-index="${exerciseIndex}">Remove Exercise</button>
+        </div>
+      `;
+    };
+
+    return `
+      <div class="lessons-form-container">
+        <h2>Add Lessons</h2>
+        <div class="lessons-list" id="lessons-form-list">
+          ${renderLessonForm(0)}
+        </div>
+        <button type="button" class="admin-btn add-lesson-btn">+ Add Lesson</button>
+        <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;">
+          <button class="admin-btn" id="bulk-add-lessons-btn">Add Lessons</button>
+          <button class="admin-btn" id="bulk-cancel-lessons-btn">Cancel</button>
+        </div>
+      </div>
+    `;
+  };
+
   showModalTabbed({
-    title: 'Bulk Add Lessons (JSON)',
-    formHtml: `<h2>Bulk Add Lessons (JSON)</h2><textarea id="bulk-lessons-json" rows="10"></textarea><div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end;"><button class="admin-btn" id="bulk-add-lessons-btn">Add</button><button class="admin-btn" id="bulk-cancel-lessons-btn">Cancel</button></div>`,
+    title: 'Add Lessons',
+    formHtml: generateLessonForm(),
+    jsonEditHtml: `<textarea class="modal-json-input" rows="20" placeholder="Paste your JSON here..."></textarea>`,
     jsonTemplate,
     jsonFaq: faqHtml,
     onFormMount: () => {
+      let lessonCount = 1;
+      let exerciseCounts = [0];
+
+      // Add lesson button
+      document.querySelector('.add-lesson-btn').onclick = () => {
+        const lessonsList = document.getElementById('lessons-form-list');
+        const newLessonHtml = `
+          <div class="lesson-form-section" data-lesson-index="${lessonCount}">
+            <h3>Lesson ${lessonCount + 1}</h3>
+            <div class="form-group">
+              <label>Lesson ID:</label>
+              <input type="number" class="lesson-id-input" placeholder="301" value="${301 + lessonCount}">
+            </div>
+            <div class="form-group">
+              <label>Title:</label>
+              <input type="text" class="lesson-title-input" placeholder="Introduction to Variables">
+            </div>
+            <div class="form-group">
+              <label>Content (Markdown):</label>
+              <textarea class="lesson-content-input" rows="8" placeholder="Enter your lesson content in Markdown format..."></textarea>
+            </div>
+            <div class="exercises-section">
+              <h4>Exercises</h4>
+              <div class="exercises-list" data-lesson-index="${lessonCount}">
+                <!-- Exercises will be added here -->
+              </div>
+              <button type="button" class="admin-btn add-exercise-btn" data-lesson-index="${lessonCount}">+ Add Exercise</button>
+            </div>
+            <button type="button" class="admin-btn remove-lesson-btn" data-lesson-index="${lessonCount}">Remove Lesson</button>
+          </div>
+        `;
+        lessonsList.insertAdjacentHTML('beforeend', newLessonHtml);
+        exerciseCounts[lessonCount] = 0;
+        lessonCount++;
+        
+        // Reattach event listeners
+        attachFormEventListeners();
+      };
+
+      // Add exercise button
+      const addExerciseToLesson = (lessonIndex) => {
+        const exercisesList = document.querySelector(`.exercises-list[data-lesson-index="${lessonIndex}"]`);
+        const exerciseIndex = exerciseCounts[lessonIndex] || 0;
+        const newExerciseHtml = `
+          <div class="exercise-form" data-lesson-index="${lessonIndex}" data-exercise-index="${exerciseIndex}">
+            <h5>Exercise ${exerciseIndex + 1}</h5>
+            <div class="form-group">
+              <label>Type:</label>
+              <select class="exercise-type-select">
+                <option value="mcq">Multiple Choice</option>
+                <option value="fill">Fill in the Blank</option>
+                <option value="code">Code Exercise</option>
+                <option value="drag">Drag & Drop</option>
+                <option value="order">Ordering</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Prompt:</label>
+              <textarea class="exercise-prompt-input" rows="3" placeholder="What is a variable?"></textarea>
+            </div>
+            <div class="exercise-type-fields">
+              <!-- Type-specific fields will be shown here -->
+            </div>
+            <button type="button" class="admin-btn remove-exercise-btn" data-lesson-index="${lessonIndex}" data-exercise-index="${exerciseIndex}">Remove Exercise</button>
+          </div>
+        `;
+        exercisesList.insertAdjacentHTML('beforeend', newExerciseHtml);
+        exerciseCounts[lessonIndex] = (exerciseCounts[lessonIndex] || 0) + 1;
+        
+        // Show type-specific fields
+        const exerciseForm = exercisesList.lastElementChild;
+        const typeSelect = exerciseForm.querySelector('.exercise-type-select');
+        showExerciseTypeFields(typeSelect);
+        
+        // Attach type change listener
+        typeSelect.onchange = () => showExerciseTypeFields(typeSelect);
+      };
+
+      // Show exercise type-specific fields
+      const showExerciseTypeFields = (typeSelect) => {
+        const exerciseForm = typeSelect.closest('.exercise-form');
+        const fieldsContainer = exerciseForm.querySelector('.exercise-type-fields');
+        const type = typeSelect.value;
+        
+        let fieldsHtml = '';
+        
+        switch(type) {
+          case 'mcq':
+            fieldsHtml = `
+              <div class="form-group">
+                <label>Options (one per line):</label>
+                                 <textarea class="exercise-options-input" rows="4" placeholder="Option 1\nOption 2\nOption 3\nOption 4"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Correct Answer (0-based index):</label>
+                <input type="number" class="exercise-answer-input" min="0" placeholder="0">
+              </div>
+            `;
+            break;
+          case 'fill':
+            fieldsHtml = `
+              <div class="form-group">
+                <label>Correct Answer:</label>
+                <input type="text" class="exercise-answer-input" placeholder="correct answer">
+              </div>
+            `;
+            break;
+          case 'code':
+            fieldsHtml = `
+              <div class="form-group">
+                <label>Starter Code:</label>
+                <textarea class="exercise-starter-input" rows="4" placeholder="# Your code here"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Solution:</label>
+                <textarea class="exercise-solution-input" rows="4" placeholder="print('Hello, World!')"></textarea>
+              </div>
+            `;
+            break;
+          case 'drag':
+          case 'order':
+            fieldsHtml = `
+              <div class="form-group">
+                <label>Items (one per line):</label>
+                                 <textarea class="exercise-items-input" rows="4" placeholder="Item 1\nItem 2\nItem 3\nItem 4"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Correct Order (comma-separated indices):</label>
+                <input type="text" class="exercise-order-input" placeholder="0,1,2,3">
+              </div>
+            `;
+            break;
+        }
+        
+        fieldsContainer.innerHTML = fieldsHtml;
+      };
+
+      // Attach event listeners
+      const attachFormEventListeners = () => {
+        // Add exercise buttons
+        document.querySelectorAll('.add-exercise-btn').forEach(btn => {
+          btn.onclick = () => addExerciseToLesson(parseInt(btn.dataset.lessonIndex));
+        });
+
+        // Remove lesson buttons
+        document.querySelectorAll('.remove-lesson-btn').forEach(btn => {
+          btn.onclick = () => {
+            const lessonSection = btn.closest('.lesson-form-section');
+            lessonSection.remove();
+          };
+        });
+
+        // Remove exercise buttons
+        document.querySelectorAll('.remove-exercise-btn').forEach(btn => {
+          btn.onclick = () => {
+            const exerciseForm = btn.closest('.exercise-form');
+            exerciseForm.remove();
+          };
+        });
+
+        // Exercise type change listeners
+        document.querySelectorAll('.exercise-type-select').forEach(select => {
+          select.onchange = () => showExerciseTypeFields(select);
+        });
+      };
+
+      // Initial setup
+      attachFormEventListeners();
+      
+      // Show type-specific fields for initial exercise
+      const initialTypeSelect = document.querySelector('.exercise-type-select');
+      if (initialTypeSelect) {
+        showExerciseTypeFields(initialTypeSelect);
+        initialTypeSelect.onchange = () => showExerciseTypeFields(initialTypeSelect);
+      }
+
+      // Add exercise to first lesson
+      const firstAddExerciseBtn = document.querySelector('.add-exercise-btn');
+      if (firstAddExerciseBtn) {
+        firstAddExerciseBtn.onclick = () => addExerciseToLesson(0);
+      }
+
+      // Form submission
       document.getElementById('bulk-cancel-lessons-btn').onclick = closeModal;
       document.getElementById('bulk-add-lessons-btn').onclick = () => {
         try {
-          const arr = JSON.parse(document.getElementById('bulk-lessons-json').value);
+          const lessons = [];
+          
+          document.querySelectorAll('.lesson-form-section').forEach((lessonSection, lessonIndex) => {
+            const lessonId = parseInt(lessonSection.querySelector('.lesson-id-input').value) || (301 + lessonIndex);
+            const title = lessonSection.querySelector('.lesson-title-input').value.trim();
+            const content = lessonSection.querySelector('.lesson-content-input').value.trim();
+            
+            if (!title || !content) {
+              throw new Error(`Lesson ${lessonIndex + 1} is missing title or content`);
+            }
+            
+            const exercises = [];
+            lessonSection.querySelectorAll('.exercise-form').forEach((exerciseForm, exerciseIndex) => {
+              const type = exerciseForm.querySelector('.exercise-type-select').value;
+              const prompt = exerciseForm.querySelector('.exercise-prompt-input').value.trim();
+              
+              if (!prompt) {
+                throw new Error(`Exercise ${exerciseIndex + 1} in Lesson ${lessonIndex + 1} is missing prompt`);
+              }
+              
+              const exercise = { type, prompt };
+              
+              switch(type) {
+                case 'mcq':
+                  const optionsText = exerciseForm.querySelector('.exercise-options-input').value.trim();
+                  const answer = parseInt(exerciseForm.querySelector('.exercise-answer-input').value);
+                  if (!optionsText || isNaN(answer)) {
+                    throw new Error(`MCQ exercise ${exerciseIndex + 1} in Lesson ${lessonIndex + 1} is missing options or answer`);
+                  }
+                  exercise.options = optionsText.split('\n').filter(opt => opt.trim());
+                  exercise.answer = answer;
+                  break;
+                case 'fill':
+                  const fillAnswer = exerciseForm.querySelector('.exercise-answer-input').value.trim();
+                  if (!fillAnswer) {
+                    throw new Error(`Fill exercise ${exerciseIndex + 1} in Lesson ${lessonIndex + 1} is missing answer`);
+                  }
+                  exercise.answer = fillAnswer;
+                  break;
+                case 'code':
+                  const starter = exerciseForm.querySelector('.exercise-starter-input').value.trim();
+                  const solution = exerciseForm.querySelector('.exercise-solution-input').value.trim();
+                  if (!solution) {
+                    throw new Error(`Code exercise ${exerciseIndex + 1} in Lesson ${lessonIndex + 1} is missing solution`);
+                  }
+                  exercise.starter = starter;
+                  exercise.solution = solution;
+                  break;
+                case 'drag':
+                case 'order':
+                  const itemsText = exerciseForm.querySelector('.exercise-items-input').value.trim();
+                  const orderText = exerciseForm.querySelector('.exercise-order-input').value.trim();
+                  if (!itemsText || !orderText) {
+                    throw new Error(`${type} exercise ${exerciseIndex + 1} in Lesson ${lessonIndex + 1} is missing items or order`);
+                  }
+                  exercise.items = itemsText.split('\n').filter(item => item.trim());
+                  exercise.order = orderText.split(',').map(i => parseInt(i.trim()));
+                  break;
+              }
+              
+              exercises.push(exercise);
+            });
+            
+            lessons.push({
+              id: lessonId,
+              title,
+              content,
+              exercises
+            });
+          });
+          
+          if (lessons.length === 0) {
+            throw new Error('No lessons to add');
+          }
+          
           const course = state.getCourses().find(c => c.id == courseId);
           const chapter = course && course.chapters.find(ch => ch.id == chapterId);
-          if (Array.isArray(arr) && chapter) {
-            chapter.lessons = chapter.lessons.concat(arr);
+          if (chapter) {
+            chapter.lessons = chapter.lessons.concat(lessons);
             state.editCourse(course.id, { chapters: course.chapters });
             closeModal();
             renderCourseWideChaptersView(course, course.chapters, chapterId);
           }
-        } catch (e) { alert('Invalid JSON: ' + e.message); }
+        } catch (e) { 
+          alert('Error: ' + e.message); 
+        }
       };
     }
   });
@@ -3160,3 +3963,11 @@ function showOnboardingModal() {
     window.addEventListener('DOMContentLoaded', showOnboardingModal);
   }
 })();
+
+// Global reset function
+window.resetApp = function() {
+  if (confirm('This will clear all your data and reset the app to its initial state. Are you sure?')) {
+    localStorage.clear();
+    location.reload();
+  }
+};

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Module Test</title>
+</head>
+<body>
+    <h1>Testing Module Loading</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(message, isError = false) {
+            results.innerHTML += `<div style="color: ${isError ? 'red' : 'green'}; margin: 0.5rem 0;">${message}</div>`;
+            console.log(message);
+        }
+        
+        async function testModule(path) {
+            try {
+                log(`Testing ${path}...`);
+                const module = await import(path);
+                log(`✅ ${path} loaded successfully`);
+                return true;
+            } catch (error) {
+                log(`❌ ${path} failed: ${error.message}`, true);
+                return false;
+            }
+        }
+        
+        async function runTests() {
+            log('Starting module tests...');
+            
+            const modules = [
+                './js/state.js',
+                './js/profileManager.js', 
+                './js/ui.js',
+                './js/dragDrop.js'
+            ];
+            
+            for (const module of modules) {
+                await testModule(module);
+            }
+        }
+        
+        runTests();
+    </script>
+</body>
+</html> 

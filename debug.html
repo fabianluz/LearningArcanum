@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Arcanum</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .error { color: red; }
+    .success { color: green; }
+    .info { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>Debug Arcanum Application</h1>
+  <div id="output"></div>
+  
+  <script>
+    const output = document.getElementById('output');
+    
+    function log(message, type = 'info') {
+      const div = document.createElement('div');
+      div.className = type;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      output.appendChild(div);
+      console.log(message);
+    }
+    
+    log('Starting debug...', 'info');
+    
+    // Test 1: Check if modules can be imported
+    log('Testing module imports...', 'info');
+    
+    try {
+      import('./js/state.js').then(module => {
+        log('✅ state.js loaded successfully', 'success');
+        log(`Available exports: ${Object.keys(module).join(', ')}`, 'info');
+      }).catch(error => {
+        log(`❌ Error loading state.js: ${error.message}`, 'error');
+      });
+    } catch (error) {
+      log(`❌ Error importing state.js: ${error.message}`, 'error');
+    }
+    
+    try {
+      import('./js/ui.js').then(module => {
+        log('✅ ui.js loaded successfully', 'success');
+        log(`Available exports: ${Object.keys(module).join(', ')}`, 'info');
+      }).catch(error => {
+        log(`❌ Error loading ui.js: ${error.message}`, 'error');
+      });
+    } catch (error) {
+      log(`❌ Error importing ui.js: ${error.message}`, 'error');
+    }
+    
+    try {
+      import('./js/main.js').then(module => {
+        log('✅ main.js loaded successfully', 'success');
+        log(`Available exports: ${Object.keys(module).join(', ')}`, 'info');
+      }).catch(error => {
+        log(`❌ Error loading main.js: ${error.message}`, 'error');
+      });
+    } catch (error) {
+      log(`❌ Error importing main.js: ${error.message}`, 'error');
+    }
+    
+    // Test 2: Check localStorage
+    log('Testing localStorage...', 'info');
+    try {
+      const state = localStorage.getItem('arcanum-app-state');
+      if (state) {
+        log(`✅ localStorage has data: ${state.length} characters`, 'success');
+      } else {
+        log('ℹ️ localStorage is empty', 'info');
+      }
+    } catch (error) {
+      log(`❌ Error accessing localStorage: ${error.message}`, 'error');
+    }
+    
+    // Test 3: Check DOM elements
+    log('Testing DOM elements...', 'info');
+    const appRoot = document.getElementById('app-root');
+    if (appRoot) {
+      log('✅ app-root element found', 'success');
+    } else {
+      log('❌ app-root element not found', 'error');
+    }
+    
+    // Test 4: Try to initialize the app
+    setTimeout(() => {
+      log('Attempting to initialize app...', 'info');
+      try {
+        import('./js/main.js').then(async (mainModule) => {
+          if (mainModule.initUI) {
+            log('✅ initUI function found, calling it...', 'success');
+            mainModule.initUI();
+            log('✅ initUI called successfully', 'success');
+          } else {
+            log('❌ initUI function not found in main.js', 'error');
+          }
+        }).catch(error => {
+          log(`❌ Error during app initialization: ${error.message}`, 'error');
+        });
+      } catch (error) {
+        log(`❌ Error in app initialization: ${error.message}`, 'error');
+      }
+    }, 1000);
+  </script>
+</body>
+</html> 

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arcanum - Debug Mode</title>
+  <link rel="stylesheet" href="css/style.css?v=1">
+  <link rel="stylesheet" href="css/themes.css?v=1">
+  <link rel="icon" href="images/arcanum-favicon.png">
+</head>
+<body>
+  <div id="theme-switcher" tabindex="0" aria-label="Switch Theme"></div>
+  <main id="app-root">
+    <div style="padding: 2rem; text-align: center;">
+      <h1>Loading Arcanum...</h1>
+      <p>If you see this message for more than a few seconds, there's an error.</p>
+      <div id="error-output" style="color: red; margin-top: 1rem;"></div>
+    </div>
+  </main>
+  <div id="modal-root" aria-live="polite"></div>
+  
+  <script>
+    // Add error handling
+    window.addEventListener('error', function(e) {
+      console.error('Global error:', e.error);
+      document.getElementById('error-output').innerHTML = 'Error: ' + e.error.message;
+    });
+    
+    window.addEventListener('unhandledrejection', function(e) {
+      console.error('Unhandled promise rejection:', e.reason);
+      document.getElementById('error-output').innerHTML = 'Promise error: ' + e.reason;
+    });
+  </script>
+  
+  <script type="module" src="js/main.js?v=1"></script>
+</body>
+</html> 
