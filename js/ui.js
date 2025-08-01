@@ -140,10 +140,45 @@ function renderDashboardView() {
   const admin = state.isAdminMode();
   ensureSRSQueue(profile);
   const dueSRS = getDueSRSItems(profile);
-  if (courses.length > 1) {
-    renderSkillTreeDashboard();
-    return;
+
+  // Responsive: decide which buttons to show
+  const isMobile = window.innerWidth < 900;
+  // Always show these
+  const mainButtons = [
+    `<button class="navbar-link" id="nav-profile">Profile</button>`,
+    `<button class="navbar-link daily-review-btn" id="nav-daily-review">Daily Review${dueSRS.length ? ` <span class='daily-review-badge'>${dueSRS.length}</span>` : ''}</button>`,
+    renderAdminSlider()
+  ];
+  // These go in the More dropdown on mobile
+  const moreButtons = [
+    `<button class="navbar-link" id="nav-progress">Progress</button>`,
+    `<button class="navbar-link" id="nav-achievements">Achievements</button>`,
+    renderResetDemoButton()
+  ];
+  // Desktop: show all, Mobile: show main + More
+  let navbarRightHtml = '';
+  if (!isMobile) {
+    navbarRightHtml = [
+      ...mainButtons.slice(0, 2),
+      `<button class="navbar-link" id="nav-progress">Progress</button>`,
+      `<button class="navbar-link" id="nav-achievements">Achievements</button>`,
+      ...mainButtons.slice(2),
+      renderResetDemoButton(),
+      `<div id="theme-switcher-navbar"></div>`
+    ].join('');
+  } else {
+    navbarRightHtml = [
+      ...mainButtons,
+      `<div class="navbar-more-dropdown">
+        <button class="navbar-more-btn" id="navbar-more-btn" aria-haspopup="true" aria-expanded="false">⋯</button>
+        <div class="navbar-more-menu" id="navbar-more-menu">
+          ${moreButtons.join('')}
+        </div>
+      </div>`,
+      `<div id="theme-switcher-navbar"></div>`
+    ].join('');
   }
+
   root.innerHTML = `
     <nav class="main-navbar">
       <div class="navbar-left">
@@ -153,12 +188,7 @@ function renderDashboardView() {
         <span class="navbar-title">Choose Your Course</span>
       </div>
       <div class="navbar-right">
-        <button class="navbar-link" id="nav-profile">Profile</button>
-        <button class="navbar-link" id="nav-progress">Progress</button>
-        <button class="navbar-link" id="nav-achievements">Achievements</button>
-        <button class="navbar-link daily-review-btn" id="nav-daily-review">Daily Review${dueSRS.length ? ` <span class='daily-review-badge'>${dueSRS.length}</span>` : ''}</button>
-        ${renderResetDemoButton()}
-        ${renderAdminSlider()}
+        ${navbarRightHtml}
       </div>
     </nav>
     <section class="dashboard-fullscreen">
@@ -213,6 +243,20 @@ function renderDashboardView() {
       </div>
     </section>
   `;
+  // Move the theme switcher into the navbar
+  const themeSwitcherTarget = root.querySelector('#theme-switcher-navbar');
+  const themeSwitcher = document.getElementById('theme-switcher');
+  if (themeSwitcherTarget && themeSwitcher) {
+    themeSwitcherTarget.appendChild(themeSwitcher);
+    themeSwitcher.style.position = 'static';
+    themeSwitcher.style.marginLeft = '0.7rem';
+    themeSwitcher.style.marginRight = '0';
+    themeSwitcher.style.top = 'unset';
+    themeSwitcher.style.right = 'unset';
+    themeSwitcher.style.width = '36px';
+    themeSwitcher.style.height = '36px';
+    themeSwitcher.style.zIndex = 'auto';
+  }
   // Course navigation
   root.querySelectorAll('.course-grid-card').forEach(card => {
     card.onclick = () => renderCourseView(parseInt(card.getAttribute('data-course-id')));
@@ -220,11 +264,37 @@ function renderDashboardView() {
   });
   // Nav buttons
   root.querySelector('#nav-profile').onclick = renderProfileScreen;
-  root.querySelector('#nav-progress').onclick = renderProgressScreen;
-  root.querySelector('#nav-achievements').onclick = () => alert('Achievements view coming soon!');
+  const navProgress = root.querySelector('#nav-progress');
+  if (navProgress) navProgress.onclick = renderProgressScreen;
+  const navAchievements = root.querySelector('#nav-achievements');
+  if (navAchievements) navAchievements.onclick = () => alert('Achievements view coming soon!');
   root.querySelector('#nav-daily-review').onclick = renderDailyReviewScreen;
+  // More dropdown logic
+  const moreBtn = root.querySelector('#navbar-more-btn');
+  const moreMenu = root.querySelector('#navbar-more-menu');
+  if (moreBtn && moreMenu) {
+    moreBtn.onclick = (e) => {
+      e.stopPropagation();
+      const parent = moreBtn.closest('.navbar-more-dropdown');
+      if (parent.classList.contains('open')) {
+        parent.classList.remove('open');
+        moreBtn.setAttribute('aria-expanded', 'false');
+      } else {
+        parent.classList.add('open');
+        moreBtn.setAttribute('aria-expanded', 'true');
+      }
+    };
+    document.addEventListener('click', () => {
+      const parent = moreBtn.closest('.navbar-more-dropdown');
+      if (parent) {
+        parent.classList.remove('open');
+        moreBtn.setAttribute('aria-expanded', 'false');
+      }
+    }, { once: true });
+  }
   // Admin slider
-  root.querySelector('#admin-mode-toggle').onchange = (e) => {
+  const adminToggle = root.querySelector('#admin-mode-toggle');
+  if (adminToggle) adminToggle.onchange = (e) => {
     state.setAdminMode(e.target.checked);
     renderDashboardView();
   };
@@ -250,17 +320,8 @@ function renderDashboardView() {
         }
       };
     });
-    if (admin) {
-      enableDragAndDrop('.courses-grid', '.course-grid-card', (newOrder) => {
-        const courses = state.getCourses();
-        const newCourses = newOrder.map(id => courses.find(c => String(c.id) === id));
-        // Overwrite state.courses
-        state.courses = newCourses;
-        localStorage.setItem('arcanum-app-state', JSON.stringify(getSerializableState()));
-        renderDashboardView();
-      });
-    }
   }
+  // Restore Reset Demo Data button event handler
   const resetBtn = root.querySelector('#reset-demo-btn');
   if (resetBtn) resetBtn.onclick = () => {
     localStorage.clear();
@@ -484,7 +545,7 @@ function renderCourseWideChaptersView(course, chapters, selectedChapterId) {
           <label>Icon: <input id="add-chapter-icon" value="📖"></label><br>
           <div style="margin-top:1rem;display:flex;gap:1rem;justify-content:flex-end;">
             <button class="admin-btn" id="save-add-chapter-btn">Add</button>
-            <button class="admin-btn" id="cancel-add-chapter-btn">Cancel</button>
+            <button class="admin-btn" id="cancel-add-chapter-btn">✖ Cancel</button>
           </div>
         `);
         document.getElementById('cancel-add-chapter-btn').onclick = closeModal;
@@ -922,7 +983,7 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
         <span class="navbar-logo">Arcanum</span>
       </div>
       <div class="navbar-center">
-        <span class="navbar-title">${course.icon} ${course.title} / ${chapter.title}</span>
+        <span class="navbar-title">Lesson</span>
       </div>
       <div class="navbar-right">
         ${lessonDropdown}
@@ -930,11 +991,13 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
         <button class="navbar-link" id="back-chapter">Back to Chapter</button>
         ${renderResetDemoButton()}
         ${renderAdminSlider()}
+        <div id="theme-switcher-navbar"></div>
       </div>
     </nav>
     <section class="lesson-wide-view">
       <div class="lesson-wide-head">
         <h1 class="lesson-wide-title">${lesson.title}</h1>
+        <div class="lesson-wide-course-title">${course.icon} ${course.title}</div>
       </div>
       <div class="lesson-wide-columns">
         <aside class="lesson-codex">
@@ -974,14 +1037,26 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
       </div>
     </section>
   `;
-  // Render markdown (demo: just replace markdown with HTML)
-  const codex = root.querySelector('#lesson-codex-md');
-  codex.innerHTML = lessonContent
-    .replace(/^# (.*)$/m, '<h2>$1</h2>')
-    .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-    .replace(/\`\`\`python([\s\S]*?)\`\`\`/g, '<pre><code>$1</code></pre>')
-    .replace(/\`\`\`([\s\S]*?)\`\`\`/g, '<pre><code>$1</code></pre>')
-    .replace(/\n/g, '<br>');
+  // Move the theme switcher into the navbar
+  const themeSwitcherTarget2 = root.querySelector('#theme-switcher-navbar');
+  const themeSwitcher2 = document.getElementById('theme-switcher');
+  if (themeSwitcherTarget2 && themeSwitcher2) {
+    themeSwitcherTarget2.appendChild(themeSwitcher2);
+    themeSwitcher2.style.position = 'static';
+    themeSwitcher2.style.marginLeft = '0.7rem';
+    themeSwitcher2.style.marginRight = '0';
+    themeSwitcher2.style.top = 'unset';
+    themeSwitcher2.style.right = 'unset';
+    themeSwitcher2.style.width = '36px';
+    themeSwitcher2.style.height = '36px';
+    themeSwitcher2.style.zIndex = 'auto';
+  }
+  // Restore Reset Demo Data button event handler
+  const resetBtn2 = root.querySelector('#reset-demo-btn');
+  if (resetBtn2) resetBtn2.onclick = () => {
+    localStorage.clear();
+    location.reload();
+  };
   // Back button (fix)
   if (root.querySelector('#back-chapter')) {
     root.querySelector('#back-chapter').onclick = () => {
@@ -2900,17 +2975,28 @@ function renderDailyReviewScreen() {
         <span class="navbar-title">Daily Review</span>
       </div>
       <div class="navbar-right">
-        <button class="navbar-link" id="back-dashboard">Back to Dashboard</button>
+        <button class="navbar-link" id="back-dashboard">← Back to Dashboard</button>
         ${renderAdminSlider()}
+        <div id="theme-switcher-navbar"></div>
       </div>
     </nav>
-    <section class="daily-review-view">
-      <h2>Items Due for Review: ${dueSRS.length}</h2>
-      <div class="daily-review-list">
-        ${dueSRS.length === 0 ? '<div class="no-due-items">All caught up! 🎉</div>' : dueSRS.map(item => {
+    <section class="daily-review-view academia-bg">
+      <div class="daily-review-hero">
+        <h1 class="daily-review-title">🕯️ Daily Review</h1>
+        <div class="daily-review-desc">
+          <p>Welcome to your <b>Daily Review</b>! Here you'll reinforce what you've learned using the <b>Spaced Repetition System (SRS)</b>.<br>
+          <span class="daily-review-instructions">Review each item below. Click <b>Review</b> to recall the lesson or exercise. Mark as <b>Remembered</b> or <b>Forgot</b> to track your progress and optimize your learning.</span></p>
+        </div>
+        <div class="daily-review-summary">
+          <span class="daily-review-count">${dueSRS.length} item${dueSRS.length === 1 ? '' : 's'} due</span>
+          <span class="daily-review-streak">🔥 Streak: ${profile.streak || 0} days</span>
+        </div>
+      </div>
+      <div class="daily-review-list academia-card">
+        ${dueSRS.length === 0 ? '<div class="no-due-items">All caught up! 🎉<br><span class="daily-review-tip">Come back tomorrow for more review.</span></div>' : dueSRS.map(item => {
           let label = '';
+          let icon = '';
           if (item.type === 'lesson') {
-            // Find lesson title
             let lesson = null;
             for (const course of courses) {
               for (const chapter of (course.chapters || [])) {
@@ -2919,18 +3005,45 @@ function renderDailyReviewScreen() {
               }
               if (lesson) break;
             }
-            label = lesson ? `Lesson: <b>${lesson.title}</b>` : `Lesson #${item.id}`;
+            label = lesson ? `<b>${lesson.title}</b> <span class="daily-review-type">Lesson</span>` : `Lesson #${item.id}`;
+            icon = '📖';
           } else if (item.type === 'exercise') {
             label = `Exercise #${item.id}`;
+            icon = '📝';
           }
-          return `<div class="daily-review-item" data-id="${item.id}" data-type="${item.type}">
-            <span>${label}</span>
+          return `<div class="daily-review-item academia-card" data-id="${item.id}" data-type="${item.type}">
+            <span class="daily-review-icon">${icon}</span>
+            <span class="daily-review-label">${label}</span>
             <button class="review-btn" data-id="${item.id}" data-type="${item.type}">Review</button>
           </div>`;
         }).join('')}
       </div>
+      <div class="daily-review-faq academia-faq">
+        <h3>What is SRS?</h3>
+        <p>The <b>Spaced Repetition System</b> helps you review information at optimal intervals to maximize retention. Items you remember are shown less often; items you forget are shown more frequently.</p>
+        <h3>How do I use this screen?</h3>
+        <ul>
+          <li>Click <b>Review</b> to see the lesson or exercise.</li>
+          <li>Mark as <b>Remembered</b> or <b>Forgot</b> in the popup.</li>
+          <li>Keep your streak going by reviewing every day!</li>
+        </ul>
+      </div>
     </section>
   `;
+  // Move the theme switcher into the navbar
+  const themeSwitcherTarget = root.querySelector('#theme-switcher-navbar');
+  const themeSwitcher = document.getElementById('theme-switcher');
+  if (themeSwitcherTarget && themeSwitcher) {
+    themeSwitcherTarget.appendChild(themeSwitcher);
+    themeSwitcher.style.position = 'static';
+    themeSwitcher.style.marginLeft = '0.7rem';
+    themeSwitcher.style.marginRight = '0';
+    themeSwitcher.style.top = 'unset';
+    themeSwitcher.style.right = 'unset';
+    themeSwitcher.style.width = '36px';
+    themeSwitcher.style.height = '36px';
+    themeSwitcher.style.zIndex = 'auto';
+  }
   root.querySelector('#back-dashboard').onclick = renderDashboardView;
   // Wire up review buttons
   root.querySelectorAll('.review-btn').forEach(btn => {
@@ -3017,3 +3130,33 @@ function showImportStateModal() {
     reader.readAsText(file);
   };
 }
+
+// Onboarding modal logic
+function showOnboardingModal() {
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `<div class="modal-overlay"><div class="modal-content modal-lg">
+    <h2>Welcome to Arcanum!</h2>
+    <ol style="font-size:1.1em;line-height:1.7;">
+      <li><b>Profile Creation:</b> Start by creating a profile. Each user has their own progress, XP, streak, and achievements.</li>
+      <li><b>Course Navigation:</b> Select a course from the dashboard or skill tree. Courses are organized into chapters and lessons.</li>
+      <li><b>Admin Mode:</b> Enable Admin Mode (slider in the navbar) to add, edit, or delete courses, chapters, lessons, and more. All modals support both Form and JSON editing.</li>
+      <li><b>Import/Export:</b> Use the Import/Export buttons to save or load your entire app state as a JSON file. Great for backups or sharing!</li>
+      <li><b>Spaced Repetition (SRS):</b> Complete lessons and exercises to add them to your Daily Review queue for long-term retention.</li>
+    </ol>
+    <div style="margin-top:2rem;display:flex;justify-content:flex-end;">
+      <button class="admin-btn" id="onboarding-gotit-btn">Got it!</button>
+    </div>
+  </div></div>`;
+  modalRoot.style.pointerEvents = 'auto';
+  document.getElementById('onboarding-gotit-btn').onclick = () => {
+    localStorage.setItem('arcanum-onboarding-dismissed', '1');
+    modalRoot.innerHTML = '';
+    modalRoot.style.pointerEvents = 'none';
+  };
+}
+// Show onboarding modal on first load
+(function checkOnboarding() {
+  if (!localStorage.getItem('arcanum-onboarding-dismissed')) {
+    window.addEventListener('DOMContentLoaded', showOnboardingModal);
+  }
+})();
