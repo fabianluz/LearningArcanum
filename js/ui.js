@@ -1028,6 +1028,14 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
               <div class="exercise-prompt">${exercise.prompt}</div>
               <input class="exercise-fill" id="exercise-fill" type="text" autocomplete="off">
             ` : ''}
+            ${exercise.type === 'drag' || exercise.type === 'order' ? `
+              <div class="exercise-prompt">${exercise.prompt}</div>
+              <div class="exercise-drag-container" id="exercise-drag-container">
+                ${exercise.items.map((item, i) => `
+                  <div class="exercise-drag-item" data-index="${i}">${item}</div>
+                `).join('')}
+              </div>
+            ` : ''}
           </div>
           <div class="exercise-actions">
             <button class="check-answer-btn" id="check-answer-btn">Check Answer</button>
@@ -1079,10 +1087,15 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
       correct = val.includes('range') && val.includes('print');
     } else if (exercise.type === 'mcq') {
       const checked = root.querySelector('input[name="mcq"]:checked');
-      correct = checked && Number(checked.value) === exercise.correct;
+      correct = checked && Number(checked.value) === exercise.answer;
     } else if (exercise.type === 'fill') {
       const val = root.querySelector('#exercise-fill').value.trim();
       correct = val.toLowerCase() === exercise.answer.toLowerCase();
+    } else if (exercise.type === 'drag' || exercise.type === 'order') {
+      const dragContainer = root.querySelector('#exercise-drag-container');
+      const items = Array.from(dragContainer.querySelectorAll('.exercise-drag-item'));
+      const currentOrder = items.map(item => parseInt(item.getAttribute('data-index')));
+      correct = JSON.stringify(currentOrder) === JSON.stringify(exercise.order);
     }
     const feedback = root.querySelector('#exercise-feedback');
     if (correct) {
@@ -1121,7 +1134,7 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
     if (exercise.type === 'code') {
       answer = exercise.answer ? `Expected output: ${exercise.answer}` : 'No answer available.';
     } else if (exercise.type === 'mcq') {
-      answer = exercise.options && typeof exercise.correct === 'number' ? `Correct: ${exercise.options[exercise.correct]}` : 'No answer available.';
+      answer = exercise.options && typeof exercise.answer === 'number' ? `Correct: ${exercise.options[exercise.answer]}` : 'No answer available.';
     } else if (exercise.type === 'fill') {
       answer = exercise.answer ? `Answer: ${exercise.answer}` : 'No answer available.';
     } else if (exercise.type === 'drag' || exercise.type === 'order') {
@@ -1181,6 +1194,22 @@ function renderLessonView(courseId, chapterId, lessonId, exerciseIdx = 0) {
       localStorage.setItem('arcanum-app-state', JSON.stringify(getSerializableState()));
       renderLessonView(course.id, chapter.id, newLessons[0]?.id);
     });
+  }
+  
+  // Enable drag and drop for drag/order exercises
+  if (exercise.type === 'drag' || exercise.type === 'order') {
+    const dragContainer = root.querySelector('#exercise-drag-container');
+    if (dragContainer) {
+      enableDragAndDrop('#exercise-drag-container', '.exercise-drag-item', (newOrder) => {
+        // Update the data-index attributes to reflect the new order
+        newOrder.forEach((itemIndex, position) => {
+          const item = dragContainer.querySelector(`[data-index="${itemIndex}"]`);
+          if (item) {
+            item.setAttribute('data-index', itemIndex);
+          }
+        });
+      });
+    }
   }
 }
 
